@@ -1,0 +1,46 @@
+using System;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using RimeNotice.Models;
+using RimeNotice.Services;
+namespace RimeNotice.Views;
+public sealed partial class NotificationOptionsPage : SettingsFormPage {
+ public NotificationOptionsPage(){InitializeComponent();
+  var a=Current.Appearance;var calling=Current.Calling;
+  Section("窗口材质");var materials=new[]{"Mica","Mica Alt","亚克力","纯色"};
+  Choice("设置窗口材质",materials,(int)a.SettingsMaterial,i=>Save(s=>s with{Appearance=s.Appearance with{SettingsMaterial=(WindowMaterial)i}}));
+  Choice("通知窗口材质",materials,(int)a.NotificationMaterial,i=>Save(s=>s with{Appearance=s.Appearance with{NotificationMaterial=(WindowMaterial)i}}));
+  var picker=new ColorPicker{IsAlphaEnabled=false,MaxWidth=300,MinWidth=0,HorizontalAlignment=HorizontalAlignment.Stretch};
+  if(a.SolidColor.Length==9&&uint.TryParse(a.SolidColor.AsSpan(1),System.Globalization.NumberStyles.HexNumber,null,out var color))picker.Color=global::Windows.UI.Color.FromArgb(255,(byte)(color>>16),(byte)(color>>8),(byte)color);
+  var colorTimer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(400)};colorTimer.Tick+=(_,_)=>{colorTimer.Stop();var c=picker.Color;Save(s=>s with{Appearance=s.Appearance with{SolidColor=$"#FF{c.R:X2}{c.G:X2}{c.B:X2}"}});};
+  picker.ColorChanged+=(_,_)=>{colorTimer.Stop();colorTimer.Start();};
+  var colors=new StackPanel{Spacing=12};colors.Children.Add(picker);
+  var reset=new Button{Content="恢复主题默认颜色"};reset.Click+=(_,_)=>Save(s=>s with{Appearance=s.Appearance with{SolidColor=""}});colors.Children.Add(reset);
+  Rows.Children.Add(new Expander{Header="纯色颜色",Content=colors,HorizontalAlignment=HorizontalAlignment.Stretch,HorizontalContentAlignment=HorizontalAlignment.Stretch});
+  Note("透明效果关闭、高对比度或材质不可用时，使用纯色回退。遮罩与卡片材质分开处理。");
+  Section("通知排版");Choice("通知主题",["跟随设置窗口","浅色","深色"],a.NotificationTheme,i=>Save(s=>s with{Appearance=s.Appearance with{NotificationTheme=i}}));
+  Number("卡片最大宽度（DIP）",a.Width,360,560,v=>Save(s=>s with{Appearance=s.Appearance with{Width=v}}));
+  Number("卡片最大高度（DIP）",a.Height,220,800,v=>Save(s=>s with{Appearance=s.Appearance with{Height=v}}));
+  Number("发送人字号",a.SenderSize,20,60,v=>Save(s=>s with{Appearance=s.Appearance with{SenderSize=v}}));
+  Number("消息正文字号",a.MessageSize,14,40,v=>Save(s=>s with{Appearance=s.Appearance with{MessageSize=v}}));
+  Number("按钮字号",a.ButtonSize,12,28,v=>Save(s=>s with{Appearance=s.Appearance with{ButtonSize=v}}));
+  Text("系统字体名称",a.FontFamily,v=>Save(s=>s with{Appearance=s.Appearance with{FontFamily=v}}));
+  Text("发送人字体名称",a.SenderFontFile.Length>0?"":a.SenderFontFamily,v=>Save(s=>s with{Appearance=s.Appearance with{SenderFontFamily=v,SenderFontFile=""}}));
+  File("发送人字体文件",a.SenderFontFile,v=>{string family=v.Length==0?"":FontImportService.Import(v);Save(s=>s with{Appearance=s.Appearance with{SenderFontFamily=family,SenderFontFile=v}});},[".ttf",".otf"],"跟随系统字体");
+  Text("正文字体名称",a.MessageFontFile.Length>0?"":a.MessageFontFamily,v=>Save(s=>s with{Appearance=s.Appearance with{MessageFontFamily=v,MessageFontFile=""}}));
+  File("正文字体文件",a.MessageFontFile,v=>{string family=v.Length==0?"":FontImportService.Import(v);Save(s=>s with{Appearance=s.Appearance with{MessageFontFamily=family,MessageFontFile=v}});},[".ttf",".otf"],"跟随系统字体");
+  Note("短消息按内容收紧高度，长消息在最大高度内滚动。默认 Segoe UI Variable，中文由系统回退字体显示。可填写已安装的系统字体名称。");
+  Section("通知行为");Toggle("触摸友好托盘菜单",a.TouchFriendlyMenus,v=>Save(s=>s with{Appearance=s.Appearance with{TouchFriendlyMenus=v}}));Toggle("入场及退场动画",a.Animation,v=>Save(s=>s with{Appearance=s.Appearance with{Animation=v}}));
+  Toggle("卡片阴影",a.Shadow,v=>Save(s=>s with{Appearance=s.Appearance with{Shadow=v}}));
+  Toggle("背景遮罩",a.Mask,v=>Save(s=>s with{Appearance=s.Appearance with{Mask=v}}));
+  Toggle("通知置顶",a.AlwaysOnTop,v=>Save(s=>s with{Appearance=s.Appearance with{AlwaysOnTop=v}}));
+  Section("呼叫提醒");Toggle("直到确认",calling.UntilAcknowledged,v=>Save(s=>s with{Calling=s.Calling with{UntilAcknowledged=v}}),"开启后不自动关闭；另一个按钮用于静音。");
+  Toggle("呼吸提示动画",calling.Breathing,v=>Save(s=>s with{Calling=s.Calling with{Breathing=v}}));
+  Number("呼吸节奏（每分钟）",calling.BeatsPerMinute,10,120,v=>Save(s=>s with{Calling=s.Calling with{BeatsPerMinute=(int)v}}));
+  Section("文字与按钮");Text("底部说明",a.Footer,v=>Save(s=>s with{Appearance=s.Appearance with{Footer=v}}));
+  Text("确认按钮文字",a.ConfirmText,v=>Save(s=>s with{Appearance=s.Appearance with{ConfirmText=v}}));Text("关闭按钮文字",a.CloseText,v=>Save(s=>s with{Appearance=s.Appearance with{CloseText=v}}));
+  File("确认按钮图标",a.ConfirmIcon,v=>Save(s=>s with{Appearance=s.Appearance with{ConfirmIcon=v}}),[".png",".jpg",".ico"],"无图标");
+  File("关闭按钮图标",a.CloseIcon,v=>Save(s=>s with{Appearance=s.Appearance with{CloseIcon=v}}),[".png",".jpg",".ico"],"无图标");
+  Note("通知预览在调试页，默认不播放声音。");
+ }
+}

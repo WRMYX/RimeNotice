@@ -1,0 +1,103 @@
+name: Package application
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Draft release tag, for example v1.0.1. Empty means artifacts only.'
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: package-${{ inputs.release_version || github.ref }}
+  cancel-in-progress: false
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.402'
+      - name: Resolve version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          REQUESTED_VERSION: ${{ inputs.release_version }}
+        run: |
+          $tag = if ($env:REF_TYPE -eq 'tag') { $env:REF_NAME } else { $env:REQUESTED_VERSION.Trim() }
+          if ($tag) {
+            if ($tag -notmatch '^v([1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'Use vMAJOR.MINOR.PATCH.' }
+            $version = "$($Matches[1]).$($Matches[2]).$($Matches[3]).0"
+          } else {
+            [xml]$manifest = Get-Content RimeNotice/Package.appxmanifest -Raw
+            $version = [string]$manifest.Package.Identity.Version
+          }
+          "value=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+      - name: Initialize and check
+        run: |
+          ./tools/Initialize-Build.ps1
+          dotnet run --project tools/RuleChecks -c Release
+          if ($LASTEXITCODE -ne 0) { throw 'Checks failed.' }
+          ./tests/RimeNotice.Update.Tests/Test-PortableUpdate.ps1
+      - name: Import optional stable signing identity
+        env:
+          SIGNING_PFX: ${{ secrets.RN_SIGNING_PFX_BASE64 }}
+          SIGNING_PASSWORD: ${{ secrets.RN_SIGNING_PASSWORD }}
+        run: |
+          if (!$env:SIGNING_PFX) { Write-Output 'No stable signer configured: MSIX is a local test package.'; exit 0 }
+          $path = Join-Path $env:RUNNER_TEMP 'rn-signing.pfx'
+          try {
+            [IO.File]::WriteAllBytes($path,[Convert]::FromBase64String($env:SIGNING_PFX))
+            $password = ConvertTo-SecureString $env:SIGNING_PASSWORD -AsPlainText -Force
+            $certificate = Import-PfxCertificate -FilePath $path -Password $password -CertStoreLocation Cert:/CurrentUser/My
+            "RN_SIGNING_THUMBPRINT=$($certificate.Thumbprint)" >> $env:GITHUB_ENV
+          } finally { if (Test-Path $path) { Remove-Item -LiteralPath $path -Force } }
+      - name: Build portable and MSIX
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.value }}
+          STORE_IDENTITY: ${{ secrets.RN_STORE_IDENTITY_JSON }}
+        run: |
+          New-Item -ItemType Directory artifacts/Release -Force | Out-Null
+          $portable = ./tools/Build-Portable.ps1 -Version $env:PACKAGE_VERSION -OutputDirectory artifacts/Release
+          $package = ./tools/Build-MSIX.ps1 -Version $env:PACKAGE_VERSION -PublishedDirectory $portable.Stage -OutputDirectory artifacts/MSIX
+          Compress-Archive -LiteralPath $package.Package,$package.Certificate -DestinationPath "artifacts/Release/RimeNotice-$env:PACKAGE_VERSION-MSIX-with-certificate-x64.zip"
+          if ($env:STORE_IDENTITY) {
+            $identity = Join-Path $env:RUNNER_TEMP 'rn-store-identity.json'
+            try {
+              $env:STORE_IDENTITY | Set-Content -LiteralPath $identity -Encoding utf8
+              ./tools/Build-MSIX.ps1 -Store -StoreIdentityFile $identity -Version $env:PACKAGE_VERSION -PublishedDirectory $portable.Stage -OutputDirectory artifacts/Store
+              "RN_STORE_READY=true" >> $env:GITHUB_ENV
+            } finally { if (Test-Path $identity) { Remove-Item -LiteralPath $identity -Force } }
+          } else { Write-Output 'Store identity pending; no Store-ready package generated.' }
+          Get-ChildItem artifacts/Release -Filter *.zip | ForEach-Object { (Get-FileHash $_.FullName).Hash.ToLowerInvariant()+'  '+$_.Name } | Set-Content artifacts/Release/SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RimeNotice-Release-x64
+          path: artifacts/Release/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: env.RN_STORE_READY == 'true'
+        with:
+          name: RimeNotice-Store-x64
+          path: artifacts/Store/*.msix
+      - name: Create draft release
+        if: steps.version.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: |
+          $files = @(Get-ChildItem artifacts/Release -File | ForEach-Object FullName)
+          gh release create $env:RELEASE_TAG @files --draft --target $env:RELEASE_COMMIT --title "RimeNotice $env:RELEASE_TAG" --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw 'Draft release failed.' }

@@ -1,0 +1,24 @@
+name: Build and checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.402'
+      - name: Initialize build tools
+        run: ./tools/Initialize-Build.ps1
+      - name: Rules, payload revisions and font validation
+        run: dotnet run --project tools/RuleChecks -c Release
+      - name: Portable updater and rollback
+        run: ./tests/RimeNotice.Update.Tests/Test-PortableUpdate.ps1
+      - name: Build application and native updater
+        run: ./tools/Build-Payload.ps1 -OutputDirectory artifacts/CI

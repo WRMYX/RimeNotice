@@ -1,0 +1,43 @@
+<Window x:Class="RimeNotice.MainWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="RimeNotice 设置">
+ <Window.SystemBackdrop><MicaBackdrop /></Window.SystemBackdrop>
+ <Grid x:Name="WindowRoot">
+  <Grid.RowDefinitions><RowDefinition Height="48"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+  <Grid x:Name="AppTitleBar" Background="Transparent" Padding="16,0,144,0">
+   <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+    <Image Source="ms-appx:///Assets/RimeNotice-Logo.svg" Width="24" Height="24"/>
+    <TextBlock Text="RimeNotice 设置" Style="{ThemeResource BodyStrongTextBlockStyle}" VerticalAlignment="Center"/>
+   </StackPanel>
+  </Grid>
+  <NavigationView Grid.Row="1" x:Name="Navigation" PaneDisplayMode="Auto"
+   OpenPaneLength="208" CompactPaneLength="48" ExpandedModeThresholdWidth="720" CompactModeThresholdWidth="480"
+   IsPaneOpen="True" IsSettingsVisible="False" AlwaysShowHeader="False"
+   IsBackButtonVisible="Collapsed" SelectionChanged="Navigation_SelectionChanged" Loaded="Navigation_Loaded">
+   <NavigationView.MenuItems>
+    <NavigationViewItem Content="消息接收" Tag="monitor" Icon="Message"/>
+    <NavigationViewItem Content="通知外观" Tag="appearance" Icon="View"/>
+    <NavigationViewItem Content="声音与语音" Tag="audio" Icon="Volume"/>
+    <NavigationViewItem Content="接收兼容" Tag="reception" Icon="Link"/>
+    <NavigationViewItem Content="提醒规则" Tag="rules" Icon="Filter"/>
+   </NavigationView.MenuItems>
+   <NavigationView.FooterMenuItems>
+    <NavigationViewItem Content="常规" Tag="settings" Icon="Setting"/>
+    <NavigationViewItem x:Name="UpdateNav" Content="更新" Tag="updates" ToolTipService.ToolTip="更新"><NavigationViewItem.Icon><FontIcon Glyph="&#xE895;"/></NavigationViewItem.Icon></NavigationViewItem>
+    <NavigationViewItem x:Name="DeveloperNav" Content="调试" Tag="debug" Icon="Repair" Visibility="Collapsed"/>
+    <NavigationViewItem Content="关于" Tag="about">
+     <NavigationViewItem.Icon><FontIcon Glyph="&#xE946;"/></NavigationViewItem.Icon>
+    </NavigationViewItem>
+   </NavigationView.FooterMenuItems>
+   <Grid x:Name="ContentHost">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <StackPanel x:Name="SectionHeader" Margin="0,24,0,16" Spacing="8" HorizontalAlignment="Center">
+     <TextBlock x:Name="PageTitle" Text="消息接收" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+     <TextBlock x:Name="PageDescription" Text="查看 QQ 消息接收状态。" TextWrapping="Wrap" Style="{ThemeResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+     <InfoBar x:Name="NavigationError" IsOpen="False" IsClosable="True" Severity="Error" Title="页面打开失败"/>
+    </StackPanel>
+     <Frame Grid.Row="1" x:Name="ContentFrame" HorizontalAlignment="Center"/>
+   </Grid>
+  </NavigationView>
+ </Grid>
+</Window>

@@ -1,0 +1,14 @@
+<Page x:Class="RimeNotice.Views.MonitorPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <ScrollViewer HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+  <StackPanel Padding="0,0,0,36" Spacing="16">
+   <InfoBar x:Name="ReceptionHint" IsOpen="True" IsClosable="False" Title="消息接收"/>
+   <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="{ThemeResource OverlayCornerRadius}" Padding="24">
+    <StackPanel Spacing="12">
+     <TextBlock x:Name="StatusTitle" Text="正在检查通知访问权限" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
+     <TextBlock x:Name="StatusDetail" Text="获得权限后，打开 RimeNotice 即自动接收。" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+     <HyperlinkButton x:Name="PermissionLink" Content="打开 Windows 通知访问设置" NavigateUri="ms-settings:privacy-notifications" HorizontalAlignment="Left" Padding="0,4"/>
+    </StackPanel>
+   </Border>
+  </StackPanel>
+ </ScrollViewer>
+</Page>
