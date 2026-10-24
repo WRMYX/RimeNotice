@@ -1,5 +1,7 @@
 # 第三方与参考说明
 
+RimeNotice 自有源码采用 GPL-3.0-only，见 [LICENSE](LICENSE)。第三方代码、依赖、标识和素材保留各自版权与许可。
+
 - Windows App SDK / WinUI：Microsoft，依赖通过 NuGet 获取，遵循其附带许可。
 - .NET：Microsoft 与贡献者，运行依赖按其分发条款打包。
 - RimePPT：MYXMJY，tools/Build-Portable.ps1、tools/Build-MSIX.ps1 及隔离更新回滚测试由该项目移植后适配。原许可全文保留于 tools/LICENSE-RimePPT。

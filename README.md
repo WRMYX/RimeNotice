@@ -172,4 +172,22 @@ CI 默认使用公开身份配置，Secret `RN_STORE_IDENTITY_JSON` 仅作为可
 
 项目仍在完善，构建及自动检查通过不代表所有设备上的动画、UIA、在线语音或商店升级已经验收。界面使用原生 WinUI 组件，不引入 WPF、Qt 或网页界面。
 
-打包脚本及更新回滚测试参照并移植自 [RimePPT](https://github.com/WRMYX/RimePPT)，相关脚本许可见 [tools/LICENSE-RimePPT](tools/LICENSE-RimePPT)。设计参考 [WinUI Gallery](https://github.com/microsoft/WinUI-Gallery)，第三方说明见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。项目整体许可证尚待作者确定，此处不代为选择。
+打包脚本及更新回滚测试参照并移植自 [RimePPT](https://github.com/WRMYX/RimePPT)，相关脚本许可见 [tools/LICENSE-RimePPT](tools/LICENSE-RimePPT)。设计参考 [WinUI Gallery](https://github.com/microsoft/WinUI-Gallery)，第三方说明见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+
+## 许可证
+
+Copyright © 2026 **MYXMJY**。本项目采用 **GNU GPL v3（GPL-3.0-only）**，完整条款见 [LICENSE](LICENSE)。请保留适用的原作者版权与许可证声明；使用和分发以许可证全文为准。
+
+第三方依赖与素材来源见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+
+---
+
+<div align="center">
+  <p>由 <strong>MYXMJY</strong> 开发与维护</p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="RimeNotice/Assets/MYXMJY-white.png" />
+    <source media="(prefers-color-scheme: light)" srcset="RimeNotice/Assets/MYXMJY-black.png" />
+    <img src="RimeNotice/Assets/MYXMJY-black.png" width="180" height="40" alt="开发者 MYXMJY Logo" />
+  </picture>
+  <p><a href="https://RimeNotice.MYXMJY.Top">了解 RimeNotice</a> · <a href="https://github.com/WRMYX/RimeNotice/releases">查看最新版本</a></p>
+</div>
