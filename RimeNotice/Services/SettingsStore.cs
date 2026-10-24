@@ -12,13 +12,18 @@ public sealed class SettingsStore
         internal static readonly SettingsStore Instance = new(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RimeNotice", "settings.json"));
     }
     private readonly string _path;
-    public RuleSettings Current { get; private set; } = new();
+    public RuleSettings Current { get; private set; } = RuleSettings.ForNewUser();
+    public bool IsFreshInstall { get; private set; }
     public string LastError { get; private set; } = "无";
     public event Action? Changed;
     public SettingsStore(string path)
     {
-        _path = path;
-        try { if (File.Exists(path)) Current = (JsonSerializer.Deserialize<RuleSettings>(File.ReadAllText(path)) ?? throw new JsonException()).Normalize(); }
+        _path = path; IsFreshInstall=!File.Exists(path);
+        try { if (File.Exists(path)) {
+            var loaded=(JsonSerializer.Deserialize<RuleSettings>(File.ReadAllText(path)) ?? throw new JsonException()).Normalize();
+            Current=loaded.MigrateRuleDefaults();
+            if(loaded.RuleDefaultsVersion<1) Save(Current);
+        } }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         { LastError = $"设置读取失败：{ex.GetType().Name} / 0x{ex.HResult:X8}"; }
     }

@@ -21,6 +21,12 @@ public sealed partial class AboutPage : Page
         ProductGrid.SizeChanged += (_, _) => AdaptLogo();
         ActualThemeChanged += (_, _) => UpdateLogo();
     }
+    private async void ProjectLink_Click(object sender,RoutedEventArgs e)
+    {
+        if(sender is not HyperlinkButton{Tag:string url})return;
+        try{if(!await global::Windows.System.Launcher.LaunchUriAsync(new Uri(url)))throw new InvalidOperationException("请检查默认浏览器。");LinkError.IsOpen=false;}
+        catch(Exception ex){LinkError.Title="无法打开链接";LinkError.Message=url+"，请复制到浏览器访问。";LinkError.IsOpen=true;ServiceDiagnostics.Error("关于链接",ex);}
+    }
     private void UpdateLogo() => DeveloperLogo.Source = new BitmapImage(new Uri(ActualTheme == ElementTheme.Dark ? "ms-appx:///Assets/MYXMJY-white.png" : "ms-appx:///Assets/MYXMJY-black.png"));
     private void AdaptLogo()
     {

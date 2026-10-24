@@ -8,3 +8,7 @@
 - QQ 图标用于标识通知来源，相关标识属于其权利人；RN 为独立工具。
 
 参考项目与离线模型试验不包含在本仓库及发布包中。
+
+- 默认提示音：普通提醒与呼叫音来自 Windows Media（Windows Unlock.wav、Alarm09.wav）；重要提醒 startup.mp3 由项目作者提供。相关音频不声明为 RN 原创或开源许可资产。
+
+中文语音下载目录参考 NaturalVoiceSAPIAdapter Wiki，MSIX 原始文件托管于 NVDA 中文站。RN 不打包或安装 NaturalVoiceSAPIAdapter。

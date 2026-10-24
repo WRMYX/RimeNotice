@@ -1,0 +1,16 @@
+[
+  {
+    "Name": "Microsoft Xiaoxiao",
+    "DisplayName": "晓晓 · 中文女声",
+    "PackageName": "MicrosoftWindows.Voice.zh-CN.Xiaoxiao.1",
+    "Version": "1.0.9.0",
+    "Url": "https://dl.nvdacn.com/NVDA-Addons/TTS/NaturalVoices/MicrosoftWindows.Voice.zh-CN.Xiaoxiao.1_1.0.9.0_x64__cw5n1h2txyewy.Msix"
+  },
+  {
+    "Name": "Microsoft Yunxi",
+    "DisplayName": "云希 · 中文男声",
+    "PackageName": "MicrosoftWindows.Voice.zh-CN.Yunxi.1",
+    "Version": "1.0.4.0",
+    "Url": "https://dl.nvdacn.com/NVDA-Addons/TTS/NaturalVoices/MicrosoftWindows.Voice.zh-CN.Yunxi.1_1.0.4.0_x64__cw5n1h2txyewy.Msix"
+  }
+]

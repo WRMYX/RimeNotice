@@ -12,6 +12,12 @@ public class SettingsFormPage : Page {
  protected RuleSettings Current=>SettingsStore.Shared.Current;
  public SettingsFormPage(){Content=new ScrollViewer{Content=Rows,HorizontalContentAlignment=HorizontalAlignment.Stretch,HorizontalScrollBarVisibility=ScrollBarVisibility.Disabled};Rows.Children.Add(_error);}
  protected void Section(string text)=>Rows.Children.Add(new TextBlock{Text=text,Style=(Style)Application.Current.Resources["BodyStrongTextBlockStyle"],FontSize=16,Margin=new Thickness(0,Rows.Children.Count==1?0:16,0,4)});
+ // Wrap controls without rebuilding them or changing bindings and handlers.
+ protected Expander Fold(string title,int start,bool expanded=false){
+  var content=new StackPanel{Spacing=8};while(Rows.Children.Count>start){var item=Rows.Children[start];Rows.Children.RemoveAt(start);content.Children.Add(item);}
+  var group=new Expander{Style=(Style)Application.Current.Resources["SettingExpanderStyle"],Header=title,Content=content,IsExpanded=expanded,HorizontalAlignment=HorizontalAlignment.Stretch,HorizontalContentAlignment=HorizontalAlignment.Stretch};Rows.Children.Add(group);return group;
+ }
+ protected Expander Group(string title,Action build,bool expanded=false){int start=Rows.Children.Count;build();return Fold(title,start,expanded);}
  private static TextBlock SecondaryText(string text,bool caption=false){
   var block=(TextBlock)Microsoft.UI.Xaml.Markup.XamlReader.Load("<TextBlock xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' TextWrapping='Wrap' Foreground='{ThemeResource TextFillColorSecondaryBrush}'/>");
   block.Text=text;
@@ -20,7 +26,7 @@ public class SettingsFormPage : Page {
  }
  protected void Note(string text)=>Rows.Children.Add(SecondaryText(text));
  protected void Save(Func<RuleSettings,RuleSettings> update){try{SettingsStore.Shared.Save(update(Current));_error.IsOpen=false;_error.Visibility=Visibility.Collapsed;}catch(Exception ex){Error(ex);}}
- protected void Error(Exception ex){_error.Message="请检查文件或系统组件；详细错误已记录在调试页。";_error.Visibility=Visibility.Visible;_error.IsOpen=true;ServiceDiagnostics.Error("设置操作",ex);}
+ protected void Error(Exception ex){_error.Message=ex is InvalidOperationException?ex.Message:"请检查文件或系统组件；详细错误已记录在调试页。";_error.Visibility=Visibility.Visible;_error.IsOpen=true;ServiceDiagnostics.Error("设置操作",ex);}
  protected void Row(string title,FrameworkElement editor,string description=""){
   var grid=new Grid{Tag="SettingRow",Padding=new Thickness(16,12,16,12),MinHeight=60,ColumnSpacing=12,RowSpacing=0};
   grid.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1,GridUnitType.Star)});grid.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});
@@ -33,8 +39,8 @@ public class SettingsFormPage : Page {
   Rows.Children.Add(new Border{Style=(Style)Application.Current.Resources["SettingCardStyle"],Child=grid});
  }
  protected void Toggle(string title,bool value,Action<bool> change,string description=""){var c=new ToggleSwitch{IsOn=value,OnContent="",OffContent="",MinHeight=36};c.Toggled+=(_,_)=>change(c.IsOn);Row(title,c,description);}
- protected void Number(string title,double value,double min,double max,Action<double> change){var c=new NumberBox{Value=value,Minimum=min,Maximum=max,Width=140,SpinButtonPlacementMode=NumberBoxSpinButtonPlacementMode.Compact,MinHeight=36};c.ValueChanged+=(_,_)=>{if(double.IsFinite(c.Value))change(c.Value);};Row(title,c);}
- protected void Choice(string title,string[] labels,int index,Action<int> change){var c=new ComboBox{Width=180,MinHeight=36,SelectedIndex=-1};foreach(string label in labels)c.Items.Add(label);c.SelectedIndex=index;c.SelectionChanged+=(_,_)=>{if(c.SelectedIndex>=0)change(c.SelectedIndex);};Row(title,c);}
+ protected NumberBox Number(string title,double value,double min,double max,Action<double> change){var c=new NumberBox{Value=value,Minimum=min,Maximum=max,Width=140,SpinButtonPlacementMode=NumberBoxSpinButtonPlacementMode.Compact,MinHeight=36};c.ValueChanged+=(_,_)=>{if(double.IsFinite(c.Value))change(c.Value);};Row(title,c);return c;}
+ protected ComboBox Choice(string title,string[] labels,int index,Action<int> change){var c=new ComboBox{Width=180,MinHeight=36,SelectedIndex=-1};foreach(string label in labels)c.Items.Add(label);c.SelectedIndex=index;c.SelectionChanged+=(_,_)=>{if(c.SelectedIndex>=0)change(c.SelectedIndex);};Row(title,c);return c;}
  protected void Text(string title,string value,Action<string> change){var c=new TextBox{Text=value,Width=260,MinHeight=36};c.LostFocus+=(_,_)=>{try{change(c.Text);}catch(Exception ex){Error(ex);}};Row(title,c,"编辑后离开输入框保存。");}
  protected void Button(string title,Func<Task> click){var button=new Button{Content=title,MinHeight=36,HorizontalAlignment=HorizontalAlignment.Left};button.Click+=async(_,_)=>{button.IsEnabled=false;try{await click();}catch(Exception ex){Error(ex);}finally{button.IsEnabled=true;}};Rows.Children.Add(button);}
  protected void File(string title,string value,Action<string> change,string[] extensions,string emptyLabel="使用内置资源"){var panel=new Grid{Width=260,ColumnSpacing=8};panel.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(1,GridUnitType.Star)});panel.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});panel.ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});var name=new TextBlock{Text=string.IsNullOrWhiteSpace(value)?emptyLabel:System.IO.Path.GetFileName(value),MaxWidth=180,TextTrimming=TextTrimming.CharacterEllipsis,VerticalAlignment=VerticalAlignment.Center};var pick=new Button{Content="选择",MinHeight=36};var clear=new Button{Content="恢复",MinHeight=36};Grid.SetColumn(pick,1);Grid.SetColumn(clear,2);panel.Children.Add(name);panel.Children.Add(pick);panel.Children.Add(clear);

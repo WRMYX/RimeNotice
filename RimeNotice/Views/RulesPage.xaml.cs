@@ -16,6 +16,12 @@ public sealed partial class RulesPage : Page
         Loaded += (_, _) => LoadSettings();
         Unloaded += (_, _) => { if (_saveTimer.IsEnabled) { _saveTimer.Stop(); Save(); } };
     }
+    private void RestoreDefaults_Click(object sender,RoutedEventArgs e)
+    {
+        _saveTimer.Stop();_ready=false;
+        var defaults=RuleSettings.ForNewUser();Contacts.Text=string.Join("\n",defaults.ImportantContacts);Keywords.Text=string.Join("\n",defaults.ImportantKeywords);
+        _ready=true;Save();
+    }
     private void LoadSettings()
     {
         _ready = false; var s = SettingsStore.Shared.Current;

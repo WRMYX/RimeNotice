@@ -1,7 +1,13 @@
 using System;
 namespace RimeNotice.Models;
 public readonly record struct CardSize(double Width,double Height);
+public readonly record struct NativeContentFit(double BodyHeight,double ScrollHeight);
 public static class NotificationLayout {
+ public static NativeContentFit FitNativeViewport(double limit,double measuredFixed,double body,double attachments) {
+  double available=Math.Max(0,limit-measuredFixed);
+  double viewport=Math.Min(Math.Max(0,body),Math.Max(0,available-Math.Min(Math.Max(0,attachments),available/3)));
+  return new(viewport,Math.Min(available,viewport+Math.Max(0,attachments)));
+ }
  public static double Finite(double v,double fallback,double min,double max) => Math.Clamp(double.IsFinite(v)?v:fallback,min,max);
  public static CardSize Fit(AppearanceOptions options,double workWidth,double workHeight) {
   double width=Math.Min(Finite(options.Width,480,360,560),Math.Max(240,workWidth-32));

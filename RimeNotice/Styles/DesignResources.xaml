@@ -1,4 +1,17 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+ <Style x:Key="NotificationCommandAreaStyle" TargetType="Grid">
+  <Setter Property="Background" Value="{ThemeResource ContentDialogBackground}"/>
+  <Setter Property="BorderBrush" Value="{ThemeResource ContentDialogSeparatorBorderBrush}"/>
+  <Setter Property="BorderThickness" Value="0,1,0,0"/>
+  <Setter Property="Padding" Value="{ThemeResource ContentDialogPadding}"/>
+ </Style>
+ <Style x:Key="SettingExpanderStyle" TargetType="Expander">
+  <Setter Property="MinHeight" Value="62"/>
+  <Setter Property="FontSize" Value="14"/>
+  <Setter Property="HorizontalAlignment" Value="Stretch"/>
+  <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+  <Setter Property="VerticalContentAlignment" Value="Center"/>
+ </Style>
  <Style x:Key="SettingCardStyle" TargetType="Border">
   <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
   <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>

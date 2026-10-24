@@ -1,8 +1,9 @@
 <Page x:Class="RimeNotice.Views.RulesPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
  <ScrollViewer HorizontalContentAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled"><StackPanel Padding="0,0,0,36" Spacing="8">
 <TextBlock Text="设置会自动保存并用于新收到的 QQ 通知。" TextWrapping="Wrap"/><TextBlock Text="重要提醒" Style="{ThemeResource BodyStrongTextBlockStyle}" FontSize="16" Margin="0,16,0,4"/>
-<Expander Header="重要联系人" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><TextBox x:Name="Contacts" Header="匹配通知标题中的昵称或群名，每行一个" AcceptsReturn="True" MinHeight="100" TextWrapping="Wrap" TextChanged="RuleTextChanged"/></Expander>
-<Expander Header="重要关键词" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><TextBox x:Name="Keywords" Header="匹配通知标题和正文，每行一个" AcceptsReturn="True" MinHeight="100" TextWrapping="Wrap" TextChanged="RuleTextChanged"/></Expander>
+<Button Content="恢复默认重要提醒" Click="RestoreDefaults_Click" HorizontalAlignment="Left"/>
+<Expander Style="{StaticResource SettingExpanderStyle}" Header="重要联系人" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><TextBox x:Name="Contacts" Header="匹配通知标题中的昵称或群名，每行一个" AcceptsReturn="True" MinHeight="100" TextWrapping="Wrap" TextChanged="RuleTextChanged"/></Expander>
+<Expander Style="{StaticResource SettingExpanderStyle}" Header="重要关键词" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><TextBox x:Name="Keywords" Header="匹配通知标题和正文，每行一个" AcceptsReturn="True" MinHeight="100" TextWrapping="Wrap" TextChanged="RuleTextChanged"/></Expander>
 <Border Style="{StaticResource SettingCardStyle}"><Grid Tag="SettingRow" Padding="16,12" MinHeight="60" ColumnSpacing="12" RowSpacing="0">
  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -10,8 +11,8 @@
  <ToggleSwitch x:Name="Mention" Grid.Column="1" VerticalAlignment="Center" AutomationProperties.Name="有人提及我" OnContent="" OffContent="" Toggled="RuleChanged"/>
  </Grid></Border>
 <TextBlock Text="消息过滤" Style="{ThemeResource BodyStrongTextBlockStyle}" FontSize="16" Margin="0,16,0,4"/>
-<TextBlock Text="接收范围：QQ 发送到 Windows 的系统通知。" TextWrapping="Wrap"/><Expander Header="黑名单" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><TextBox x:Name="Blacklist" Header="标题或正文包含这些文字时忽略，每行一个" AcceptsReturn="True" MinHeight="100" TextWrapping="Wrap" TextChanged="RuleTextChanged"/></Expander>
-<Expander Header="白名单" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><TextBox x:Name="Whitelist" Header="仅接收包含这些文字的通知；留空表示不限，每行一个" AcceptsReturn="True" MinHeight="100" TextWrapping="Wrap" TextChanged="RuleTextChanged"/></Expander>
+<TextBlock Text="接收范围：QQ 发送到 Windows 的系统通知。" TextWrapping="Wrap"/><Expander Style="{StaticResource SettingExpanderStyle}" Header="黑名单" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><TextBox x:Name="Blacklist" Header="标题或正文包含这些文字时忽略，每行一个" AcceptsReturn="True" MinHeight="100" TextWrapping="Wrap" TextChanged="RuleTextChanged"/></Expander>
+<Expander Style="{StaticResource SettingExpanderStyle}" Header="白名单" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><TextBox x:Name="Whitelist" Header="仅接收包含这些文字的通知；留空表示不限，每行一个" AcceptsReturn="True" MinHeight="100" TextWrapping="Wrap" TextChanged="RuleTextChanged"/></Expander>
 <Border Style="{StaticResource SettingCardStyle}"><Grid Tag="SettingRow" Padding="16,12" MinHeight="60" ColumnSpacing="12" RowSpacing="0">
  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -25,6 +26,6 @@
  <StackPanel VerticalAlignment="Center" Spacing="4"><TextBlock Text="启用呼叫提醒" Style="{ThemeResource BodyTextBlockStyle}" TextWrapping="Wrap"/></StackPanel>
  <ToggleSwitch x:Name="Calling" Grid.Column="1" VerticalAlignment="Center" AutomationProperties.Name="启用呼叫提醒" OnContent="" OffContent="" Toggled="RuleChanged"/>
  </Grid></Border>
-<Expander Header="呼叫关键词" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><TextBox x:Name="CallingKeywords" Header="命中后显示呼叫提醒；优先于重要消息，每行一个" AcceptsReturn="True" MinHeight="100" TextWrapping="Wrap" TextChanged="RuleTextChanged"/></Expander>
+<Expander Style="{StaticResource SettingExpanderStyle}" Header="呼叫关键词" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><TextBox x:Name="CallingKeywords" Header="命中后显示呼叫提醒；优先于重要消息，每行一个" AcceptsReturn="True" MinHeight="100" TextWrapping="Wrap" TextChanged="RuleTextChanged"/></Expander>
 <InfoBar x:Name="SaveError" IsOpen="False" IsClosable="False" Severity="Error" Title="设置保存失败"/> </StackPanel></ScrollViewer>
 </Page>

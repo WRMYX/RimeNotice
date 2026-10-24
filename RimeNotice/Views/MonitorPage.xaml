@@ -6,7 +6,9 @@
     <StackPanel Spacing="12">
      <TextBlock x:Name="StatusTitle" Text="正在检查通知访问权限" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
      <TextBlock x:Name="StatusDetail" Text="获得权限后，打开 RimeNotice 即自动接收。" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-     <HyperlinkButton x:Name="PermissionLink" Content="打开 Windows 通知访问设置" NavigateUri="ms-settings:privacy-notifications" HorizontalAlignment="Left" Padding="0,4"/>
+     <Button x:Name="GrantPermission" Content="授予通知访问权限" Click="GrantPermission_Click" HorizontalAlignment="Left"/>
+     <InfoBar x:Name="LinkError" IsOpen="False" IsClosable="True" Severity="Error" Title="无法打开系统设置"/>
+     <HyperlinkButton x:Name="PermissionLink" Content="打开 Windows 通知访问设置" Click="Permission_Click" HorizontalAlignment="Left" Padding="0,4"/>
     </StackPanel>
    </Border>
   </StackPanel>

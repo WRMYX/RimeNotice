@@ -24,6 +24,7 @@ if ($parsedVersion.Major -lt 1 -or $parsedVersion.Major -gt 65535 -or $parsedVer
 if ($Store -and $parsedVersion.Revision -ne 0) {
     throw 'Microsoft Store reserves the fourth version component; it must be 0.'
 }
+if ($Store -and !$StoreIdentityFile) { $StoreIdentityFile = Join-Path $projectRoot 'packaging/StoreIdentity.public.json' }
 if ($Store -and (!$StoreIdentityFile -or !(Test-Path -LiteralPath $StoreIdentityFile))) { throw 'Store identity is not associated. Supply -StoreIdentityFile from Partner Center.' }
 $Version = $parsedVersion.ToString(4)
 $projectRoot = Split-Path $PSScriptRoot -Parent

@@ -13,7 +13,10 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
-    <Version>1.0.1.0</Version>
+    <Version>1.0.15.0</Version>
+    <Company>MYXMJY</Company>
+    <Authors>MYXMJY</Authors>
+    <Product>RimeNotice</Product>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 

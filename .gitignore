@@ -17,3 +17,17 @@ docs/功能完成情况.md
 docs/语音服务与接收模式.md
 tools/Build-TestPackage.ps1
 **/UserFonts/
+
+# Local planning/decision documents, not product documentation.
+docs/全新安装默认设置.md
+docs/QQListener功能差异.md
+# Generated packages, certificates, traces and crash dumps.
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.msixupload
+*.cer
+*.log
+*.jsonl
+*.dmp

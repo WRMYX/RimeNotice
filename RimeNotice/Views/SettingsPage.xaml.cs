@@ -1,50 +1,22 @@
 using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Navigation;
+using RimeNotice.Models;
 using RimeNotice.Services;
 namespace RimeNotice.Views;
-public sealed partial class SettingsPage : Page
-{
-    private bool _ready, _startupUpdating;
-    public SettingsPage()
-    {
-        InitializeComponent(); NavigationCacheMode = NavigationCacheMode.Required;
-        Loaded += async (_, _) => {
-            _ready = false; var s = SettingsStore.Shared.Current;
-            ThemeChoice.SelectedIndex = s.Theme; NormalDuration.Value = s.NormalSeconds;
-            ImportantDuration.Value = s.ImportantSeconds; CallingDuration.Value = s.CallingSeconds;
-            _ready = true; _startupUpdating = true; StartupToggle.IsEnabled = false;
-            try { ApplyStartup(await StartupService.GetStatusAsync()); }
-            finally { _startupUpdating = false; }
-        };
-    }
-    private void ApplyStartup(StartupStatus status)
-    { StartupToggle.IsOn = status.Enabled; StartupToggle.IsEnabled = !status.Blocked; StartupDescription.Text = status.Message; }
-    private async void Startup_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (!_ready || _startupUpdating) return;
-        _startupUpdating = true; StartupToggle.IsEnabled = false;
-        try { ApplyStartup(await StartupService.SetEnabledAsync(StartupToggle.IsOn)); }
-        finally { _startupUpdating = false; }
-    }
-    private void Persist(bool themeChanged)
-    {
-        if (!_ready || double.IsNaN(NormalDuration.Value) || double.IsNaN(ImportantDuration.Value) || double.IsNaN(CallingDuration.Value)) return;
-        try
-        {
-            SettingsStore.Shared.Save(SettingsStore.Shared.Current with {
-                Theme = ThemeChoice.SelectedIndex, NormalSeconds = (int)NormalDuration.Value,
-                ImportantSeconds = (int)ImportantDuration.Value, CallingSeconds = (int)CallingDuration.Value
-            }); SaveError.IsOpen = false;
-            if (themeChanged)
-            {
-                ThemeChoice.IsDropDownOpen = false;
-                App.Instance.Main?.ApplyAppTheme(ThemeChoice.SelectedIndex);
-            }
-        }
-        catch (Exception ex) { SaveError.Message = "更改未保存，请检查文件访问权限。"; SaveError.IsOpen = true; QQNotificationListener.Shared.ReportPresentationError(ex); }
-    }
-    private void DurationChanged(NumberBox sender, NumberBoxValueChangedEventArgs e) => Persist(false);
-    private void ThemeChoice_SelectionChanged(object sender, SelectionChangedEventArgs e) => Persist(true);
+public sealed partial class SettingsPage : SettingsFormPage {
+ private bool _startupUpdating,_ready;
+ private readonly ToggleSwitch _startup=new(){OnContent="",OffContent="",MinHeight=36};
+ private readonly TextBlock _startupDescription=new(){TextWrapping=TextWrapping.Wrap};
+ public SettingsPage(){InitializeComponent();
+  Section("启动");Row("开机自启动",_startup,"登录 Windows 后在托盘中接收消息。");Rows.Children.Add(_startupDescription);
+  Button("打开 Windows 启动应用设置",()=>WindowsSettingsLauncher.OpenAsync("startupapps"));
+  Section("应用外观");
+  ComboBox? theme=null;theme=Choice("应用主题",["跟随系统","浅色","深色"],Current.Theme,i=>{if(theme is not null)theme.IsDropDownOpen=false;Save(s=>s with{Theme=i});App.Instance.Main?.ApplyAppTheme(Current.Theme);});
+  Choice("设置窗口材质",["Mica","Mica Alt","亚克力","纯色"],(int)Current.Appearance.SettingsMaterial,i=>Save(s=>s with{Appearance=s.Appearance with{SettingsMaterial=(WindowMaterial)i}}));
+  Section("托盘菜单");Toggle("触摸友好托盘菜单",Current.Appearance.TouchFriendlyMenus,v=>Save(s=>s with{Appearance=s.Appearance with{TouchFriendlyMenus=v}}));
+  _startup.Toggled+=async(_,_)=>{if(!_ready||_startupUpdating)return;_startupUpdating=true;_startup.IsEnabled=false;try{ApplyStartup(await StartupService.SetEnabledAsync(_startup.IsOn));}catch(Exception ex){Error(ex);}finally{_startupUpdating=false;}};
+  Loaded+=async(_,_)=>{_ready=false;_startupUpdating=true;_startup.IsEnabled=false;try{ApplyStartup(await StartupService.GetStatusAsync());}catch(Exception ex){Error(ex);}finally{_startupUpdating=false;_ready=true;}};
+ }
+ private void ApplyStartup(StartupStatus status){_startup.IsOn=status.Enabled;_startup.IsEnabled=!status.Blocked;_startupDescription.Text=status.Message;}
 }

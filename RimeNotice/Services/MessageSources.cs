@@ -8,7 +8,7 @@ using Windows.UI.Notifications;
 using Windows.UI.Notifications.Management;
 using Windows.Storage.Streams;
 namespace RimeNotice.Services;
-public sealed record SourceNotice(string Key,string Sender,string Message,string SourceName,string AppId,RandomAccessStreamReference? Logo=null);
+public sealed record SourceNotice(string Key,string Sender,string Message,string SourceName,string AppId,RandomAccessStreamReference? Logo=null) { public DateTimeOffset? CreatedAt {get;init;} }
 public sealed record SourceSnapshot(bool Ready,string Status,string Detail,IReadOnlyList<SourceNotice> Notices);
 public interface IMessageSource { Task<SourceSnapshot> PollAsync(CancellationToken token); }
 public sealed class SystemNotificationSource(bool requestPermission) : IMessageSource {
@@ -22,14 +22,16 @@ public sealed class SystemNotificationSource(bool requestPermission) : IMessageS
   if(listener.GetAccessStatus()!=UserNotificationListenerAccessStatus.Allowed)return new(false,"等待通知访问权限","请在 Windows 设置中允许通知访问。",[]);
   var notifications=await listener.GetNotificationsAsync(NotificationKinds.Toast).AsTask(token);token.ThrowIfCancellationRequested();
   var result=new List<SourceNotice>();
-  foreach(var n in notifications)try {
+  foreach(var n in notifications.OrderBy(n=>n.CreationTime))try {
    string source=n.AppInfo.DisplayInfo.DisplayName;
    if(!RimeNotice.Models.NotificationLayout.AcceptSource(source,new()))continue;
    var binding=n.Notification.Visual.GetBinding(KnownNotificationBindings.ToastGeneric);if(binding is null)continue;
-   var texts=binding.GetTextElements().Select(t=>t.Text).Where(t=>!string.IsNullOrWhiteSpace(t)).ToArray();if(texts.Length==0)continue;
+   var rawTexts=binding.GetTextElements().Select(t=>t.Text).ToArray();
+   if(DiagnosticCapture.Active)DiagnosticCapture.Write("source.raw",new{mode="system",key=source+":"+n.Id.ToString()+":"+n.CreationTime.UtcTicks,creationTime=n.CreationTime,observedAt=DateTimeOffset.UtcNow,texts=rawTexts.Select(t=>t is null?null:DiagnosticCapture.Text(t)).ToArray(),lengths=rawTexts.Select(t=>t?.Length??0).ToArray()});
+   var texts=rawTexts.Where(t=>!string.IsNullOrWhiteSpace(t)).ToArray();if(texts.Length==0)continue;
    string name=n.AppInfo.DisplayInfo.DisplayName;RandomAccessStreamReference? logo=null;
    try{logo=n.AppInfo.DisplayInfo.GetLogo(new global::Windows.Foundation.Size(32,32));}catch(Exception ex){ServiceDiagnostics.Error("系统图标",ex);}
-   result.Add(new(name+":"+n.Id.ToString(),texts[0]!,string.Join("\n",texts.Skip(1)),name,n.AppInfo.AppUserModelId,logo));
+   result.Add(new(name+":"+n.Id.ToString()+":"+n.CreationTime.UtcTicks,texts[0]!,string.Join("\n",texts.Skip(1)),name,n.AppInfo.AppUserModelId,logo){CreatedAt=n.CreationTime});
   }catch(Exception ex){ServiceDiagnostics.Error("系统通知解析",ex);}
   return new(true,"正在接收通知","关闭设置窗口后仍继续接收。消息不在 RN 中保存。",result);
  }

@@ -4,6 +4,18 @@ namespace RimeNotice.Models;
 
 public sealed record RuleSettings
 {
+    public int RuleDefaultsVersion { get; init; }
+    public RuleSettings MigrateRuleDefaults() => RuleDefaultsVersion >= 1 ? this : this with {
+        RuleDefaultsVersion = 1,
+        ImportantContacts = ImportantContacts.Length == 0 ? ["老师"] : ImportantContacts,
+        ImportantKeywords = ImportantKeywords.Length == 0 ? ["作业", "通知", "课代表"] : ImportantKeywords
+    };
+    public int CallingEffectsVersion { get; init; }
+    public static RuleSettings ForNewUser() => new() {
+        RuleDefaultsVersion=1, CallingEffectsVersion=1, ImportantContacts=["老师"], ImportantKeywords=["作业","通知","课代表"],
+        Appearance=new(){TouchFriendlyMenus=true,Mask=true}, Audio=new(){MixMode=AudioMixMode.Parallel},
+        Reception=new(){PreviewImages=true,InferRecentImages=true}, Calling=new(){Breathing=false}
+    };
     public string[] ImportantContacts { get; init; } = [];
     public string[] ImportantKeywords { get; init; } = [];
     public bool MentionImportant { get; init; } = true;
@@ -34,7 +46,7 @@ public sealed record RuleSettings
         ImportantSeconds = Math.Clamp(ImportantSeconds, 1, 120), CallingSeconds = Math.Clamp(CallingSeconds, 1, 3600),
         Theme = Math.Clamp(Theme, 0, 2), SchemaVersion = 6,
         Appearance = MigrateAppearance(), Audio = (Audio ?? new()).Normalize(),
-        Reception = (Reception ?? new()).Normalize(), Calling = (Calling ?? new()).Normalize(), Updates = (Updates ?? new()).Normalize()
+        Reception = (Reception ?? new()).Normalize(), Calling = ((CallingEffectsVersion<1?(Calling??new()) with{Breathing=false}:Calling) ?? new()).Normalize(), CallingEffectsVersion=1, Updates = (Updates ?? new()).Normalize()
     };
     private AppearanceOptions MigrateAppearance()
     {

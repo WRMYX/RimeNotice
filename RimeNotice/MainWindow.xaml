@@ -18,6 +18,7 @@
     <NavigationViewItem Content="消息接收" Tag="monitor" Icon="Message"/>
     <NavigationViewItem Content="通知外观" Tag="appearance" Icon="View"/>
     <NavigationViewItem Content="声音与语音" Tag="audio" Icon="Volume"/>
+    <NavigationViewItem Content="语音包管理" Tag="voices" Icon="Download"/>
     <NavigationViewItem Content="接收兼容" Tag="reception" Icon="Link"/>
     <NavigationViewItem Content="提醒规则" Tag="rules" Icon="Filter"/>
    </NavigationView.MenuItems>

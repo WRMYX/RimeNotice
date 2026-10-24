@@ -26,7 +26,7 @@ public static class StartupService
         StartupTaskState.EnabledByPolicy => new(true, true, "系统策略已强制启用自启动。"),
         StartupTaskState.DisabledByUser => new(false, true, "Windows 已禁用此启动项，请前往系统启动应用设置开启。"),
         StartupTaskState.DisabledByPolicy => new(false, true, "系统策略禁止自启动。"),
-        StartupTaskState.Disabled => new(false, false, "登录 Windows 时自动启动 RimeNotice，默认关闭。"),
+        StartupTaskState.Disabled => new(false, false, "登录 Windows 时自动启动 RimeNotice。"),
         _ => new(false, true, "无法识别自启动状态。")
     };
     private static StartupStatus ReadPortable()
@@ -35,9 +35,21 @@ public static class StartupService
         string? current = run?.GetValue(ValueName) as string;
         using var approval = Registry.CurrentUser.OpenSubKey(ApprovalKey);
         bool disabled = approval?.GetValue(ValueName) is byte[] { Length: >= 4 } data && BitConverter.ToUInt32(data, 0) is 3 or 7;
-        if (current is not null && disabled) return new(false, true, "Windows 已禁用此启动项，请前往系统启动应用设置开启。");
+        if (disabled) return new(false, true, "Windows 已禁用此启动项，请前往系统启动应用设置开启。");
         bool ours = string.Equals(current, Command, StringComparison.OrdinalIgnoreCase);
         return new(ours, false, ours ? "已为当前便携版启用登录自启动。" : current is null ? "未启用登录自启动。" : "启动项指向其他位置，启用后将使用当前程序。");
+    }
+    // Runs once only for a genuinely new settings store. Never overrides an old Run entry.
+    public static async Task InitializeForNewUserAsync(bool freshInstall)
+    {
+        if(!freshInstall)return;
+        if(!Packaged){
+            using var run=Registry.CurrentUser.OpenSubKey(RunKey);
+            if(run?.GetValue(ValueName) is not null)return;
+        }
+        var status=await GetStatusAsync();
+        if(RimeNotice.Models.StartupInitializationPolicy.ShouldEnable(freshInstall,status.Enabled,status.Blocked,false))status=await SetEnabledAsync(true);
+        ServiceDiagnostics.Set("首次自启动",status.Message);
     }
     public static async Task<StartupStatus> GetStatusAsync()
     {

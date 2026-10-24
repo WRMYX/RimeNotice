@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Threading;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -11,12 +13,54 @@ namespace RimeNotice.Views;
 public sealed partial class DebugPage : Page
 {
     private bool _preview;
+    private bool _syncingHost=true;
+    private static bool _noticeShown;
     public DebugPage()
     {
         InitializeComponent(); NavigationCacheMode = NavigationCacheMode.Required;
-        Loaded += (_, _) => Refresh();
+        SyncHostOptions();
+        Loaded += async (_, _) => {
+            SyncHostOptions();
+            Refresh();
+            if (_noticeShown || XamlRoot is null) return;
+            _noticeShown = true;
+            try { await new ContentDialog { XamlRoot = XamlRoot, Title = "恭喜你找到了一个小彩蛋", Content = "开发者的调试页面。实验功能默认关闭，可自行开启或退出开发者调试。", CloseButtonText = "知道了" }.ShowAsync(); }
+            catch (Exception ex) { _noticeShown = false; ServiceDiagnostics.Error("调试提示", ex); }
+        };
     }
-    private void Refresh() => Diagnostics.Text = QQNotificationListener.Shared.DiagnosticSnapshot();
+    private void SyncHostOptions()
+    {
+        _syncingHost=true;var a=SettingsStore.Shared.Current.Appearance;
+        NativeHostChoice.SelectedIndex=(int)a.NativeHost;HostMaskToggle.IsOn=a.Mask;_syncingHost=false;
+    }
+    private void NativeHost_Changed(object sender,SelectionChangedEventArgs e)
+    {
+        if(_syncingHost||NativeHostChoice.SelectedIndex<0)return;
+        SaveHostOptions();
+    }
+    private void HostMask_Toggled(object sender,RoutedEventArgs e){if(!_syncingHost)SaveHostOptions();}
+    private void SaveHostOptions()
+    {
+        try{var s=SettingsStore.Shared.Current;SettingsStore.Shared.Save(s with{Appearance=s.Appearance with{NativeHost=(NativeNotificationHost)NativeHostChoice.SelectedIndex,Mask=HostMaskToggle.IsOn}});Refresh();}
+        catch(Exception ex){ExportStatus.Text="实验选项保存失败："+ex.Message;ServiceDiagnostics.Error("原生父窗口选项",ex);}
+    }
+    private void Refresh() { Diagnostics.Text = QQNotificationListener.Shared.DiagnosticSnapshot(); CaptureStatus.Text = DiagnosticCapture.Status + "\n" + DiagnosticCapture.LastPath; }
+    private async void StartCapture_Click(object sender, RoutedEventArgs e)
+    {
+        try {
+            DiagnosticCapture.Start(); Refresh();
+            var options=SettingsStore.Shared.Current.Reception;
+            DiagnosticCapture.Write("capture.options",new{options.PreviewImages,options.InferRecentImages,options.AttachmentWaitSeconds,options.UseUIAutomation,options.EventDriven,options.ScanSeconds,appearance=SettingsStore.Shared.Current.Appearance});
+            using var timeout=new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var files=await QQImageIndex.Shared.SnapshotAsync(options,timeout.Token);
+            if(DiagnosticCapture.Active)DiagnosticCapture.Write("file.snapshot",new{total=files.Length,truncated=files.Length>2000,files=files.OrderByDescending(f=>f.ObservedAt?.UtcDateTime??f.WrittenUtc).Take(2000).Select(f=>new{relativePath=Path.GetRelativePath(NotificationAttachmentResolver.DirectoryFor(options),f.Path),f.Length,f.CreatedUtc,f.WrittenUtc,f.ObservedAt}).ToArray()});
+        }
+        catch (Exception ex) { CaptureStatus.Text = "采样或初始快照异常：" + ex.Message; DiagnosticCapture.Write("capture.snapshot-error",new{error=ex.GetType().Name}); }
+    }
+    private async void StopCapture_Click(object sender, RoutedEventArgs e)
+    {
+        await DiagnosticCapture.StopAsync(); Refresh();
+    }
     private void Refresh_Click(object sender, RoutedEventArgs e) => Refresh();
     private void Export_Click(object sender, RoutedEventArgs e)
     {
@@ -39,7 +83,7 @@ public sealed partial class DebugPage : Page
     {
         if (_preview || MainWindow.Notices is null) return;
         _preview=true;
-        try { await MainWindow.Notices.ShowTextPreviewAsync("张老师", "DroidDeck 是一个专门面向 Steam Deck 掌机的开源项目，核心作用是让 SteamOS 系统可以直接运行超1万款 Windows 游戏，不用额外折腾复杂的兼容层配置。\n它最大的优势是可以直接在 Steam 库中完成游戏的验证和适配，大幅降低了掌机玩 Windows 游戏的门槛，不用手动安装双系统，就能在原生 SteamOS 环境下获得更省心的体验。\n\n我们班主任让我把QQ登录在电脑上，老师们也在群里面发送一些消息，单单是有右下角的Windows通知还是不够，所以有了这个项目。\n其实在之前我也用过其他的软件，参考了一下bilibili的一位up做的软件，但是好像4月份发布之后就一直没有更新，有一些使用上的问题。"); }
+        try { await MainWindow.Notices.ShowTextPreviewAsync("张老师", "昨日一去不复回～欧耶耶！开心比什么都贵～覆水不能在收回～哦耶耶！桃花🌸谢了有玫瑰🌹～人生💪就像朋友的这杯烈酒🍺🍺烫在我心❤️上温暖我凡事别再放心❤️上🍺🍺～耶✌！往事后不后悔慢慢去体会～此刻朋友👫这杯酒🍺最珍贵！～快把酒🍺满上干了这杯🍺大声歌唱🎤～好朋友好朋友👫今宵多欢畅～理想改变了我们的模样👨也让我懂得了珍惜朋友的肩膀💪～阳光☀总会在风🌪️雨🌧️之后撒向苍茫🍂让我们抬起头🐷学会了坚强💪就像朋友的这杯烈酒🍺🍺烫我心❤️上温暖我凡事别再放"); }
         finally { _preview=false; }
     }
     private void ClearCache_Click(object sender, RoutedEventArgs e) { AppIconResolver.Clear(); ExportStatus.Text = "已清理 RN 内存图标缓存；未修改 QQ 文件或设置。"; }

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using RimeNotice.Models;
@@ -7,20 +8,32 @@ namespace RimeNotice.Views;
 public sealed partial class NotificationOptionsPage : SettingsFormPage {
  public NotificationOptionsPage(){InitializeComponent();
   var a=Current.Appearance;var calling=Current.Calling;
+  Section("通知样式");
+  var presentation=new ComboBox{MinWidth=180,MinHeight=36};presentation.Items.Add("原生弹窗");presentation.Items.Add("材质弹窗（自定义）");presentation.SelectedIndex=(int)a.Presentation;
+  Row("弹窗样式",presentation,"切换从下一条通知生效，当前消息保持原样。");
+  Choice("原生父窗口",["紧凑＋独立遮罩（对比）","全屏＋同窗口遮罩（推荐）"],(int)a.NativeHost,i=>Save(s=>s with{Appearance=s.Appearance with{NativeHost=(NativeNotificationHost)i}}));
+  Note("全屏方案仅在原生弹窗且开启背景遮罩时生效；关闭遮罩时使用紧凑方案。");
+  var presentationNote=new TextBlock{TextWrapping=TextWrapping.Wrap};Rows.Children.Add(presentationNote);
   Section("窗口材质");var materials=new[]{"Mica","Mica Alt","亚克力","纯色"};
-  Choice("设置窗口材质",materials,(int)a.SettingsMaterial,i=>Save(s=>s with{Appearance=s.Appearance with{SettingsMaterial=(WindowMaterial)i}}));
-  Choice("通知窗口材质",materials,(int)a.NotificationMaterial,i=>Save(s=>s with{Appearance=s.Appearance with{NotificationMaterial=(WindowMaterial)i}}));
+  var notificationMaterial=new ComboBox{MinWidth=180,MinHeight=36};foreach(var material in materials)notificationMaterial.Items.Add(material);notificationMaterial.SelectedIndex=(int)a.NotificationMaterial;
+  notificationMaterial.SelectionChanged+=(_,_)=>{if(notificationMaterial.SelectedIndex>=0)Save(s=>s with{Appearance=s.Appearance with{NotificationMaterial=(WindowMaterial)notificationMaterial.SelectedIndex}});};
+  Row("通知窗口材质",notificationMaterial,"仅自定义材质弹窗使用；切换样式会保留原来的材质选择。");
+  Number("按钮区域底色强度（百分比）",a.CommandTint*100,0,100,v=>Save(s=>s with{Appearance=s.Appearance with{CommandTint=v/100}}));
+  var animationRows=new StackPanel{Spacing=8};
+  void UpdatePresentation(){bool native=presentation.SelectedIndex==(int)NotificationPresentation.Native;notificationMaterial.IsEnabled=!native;animationRows.Visibility=native?Visibility.Collapsed:Visibility.Visible;presentationNote.Text=native?"使用原生 ContentDialog、默认卡片背景及自带动画。材质和自定义动画在此模式下不生效。":"使用仿原生布局和窗口背景材质；入退场动画可分别选择。";}
+  presentation.SelectionChanged+=(_,_)=>{if(presentation.SelectedIndex<0)return;Save(s=>s with{Appearance=s.Appearance with{Presentation=(NotificationPresentation)presentation.SelectedIndex}});UpdatePresentation();};UpdatePresentation();
   var picker=new ColorPicker{IsAlphaEnabled=false,MaxWidth=300,MinWidth=0,HorizontalAlignment=HorizontalAlignment.Stretch};
   if(a.SolidColor.Length==9&&uint.TryParse(a.SolidColor.AsSpan(1),System.Globalization.NumberStyles.HexNumber,null,out var color))picker.Color=global::Windows.UI.Color.FromArgb(255,(byte)(color>>16),(byte)(color>>8),(byte)color);
   var colorTimer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(400)};colorTimer.Tick+=(_,_)=>{colorTimer.Stop();var c=picker.Color;Save(s=>s with{Appearance=s.Appearance with{SolidColor=$"#FF{c.R:X2}{c.G:X2}{c.B:X2}"}});};
   picker.ColorChanged+=(_,_)=>{colorTimer.Stop();colorTimer.Start();};
   var colors=new StackPanel{Spacing=12};colors.Children.Add(picker);
   var reset=new Button{Content="恢复主题默认颜色"};reset.Click+=(_,_)=>Save(s=>s with{Appearance=s.Appearance with{SolidColor=""}});colors.Children.Add(reset);
-  Rows.Children.Add(new Expander{Header="纯色颜色",Content=colors,HorizontalAlignment=HorizontalAlignment.Stretch,HorizontalContentAlignment=HorizontalAlignment.Stretch});
+  Rows.Children.Add(new Expander{Style=(Style)Application.Current.Resources["SettingExpanderStyle"],Header="纯色颜色",Content=colors,HorizontalAlignment=HorizontalAlignment.Stretch,HorizontalContentAlignment=HorizontalAlignment.Stretch});
   Note("透明效果关闭、高对比度或材质不可用时，使用纯色回退。遮罩与卡片材质分开处理。");
   Section("通知排版");Choice("通知主题",["跟随设置窗口","浅色","深色"],a.NotificationTheme,i=>Save(s=>s with{Appearance=s.Appearance with{NotificationTheme=i}}));
   Number("卡片最大宽度（DIP）",a.Width,360,560,v=>Save(s=>s with{Appearance=s.Appearance with{Width=v}}));
   Number("卡片最大高度（DIP）",a.Height,220,800,v=>Save(s=>s with{Appearance=s.Appearance with{Height=v}}));
+  int fontStart=Rows.Children.Count;
   Number("发送人字号",a.SenderSize,20,60,v=>Save(s=>s with{Appearance=s.Appearance with{SenderSize=v}}));
   Number("消息正文字号",a.MessageSize,14,40,v=>Save(s=>s with{Appearance=s.Appearance with{MessageSize=v}}));
   Number("按钮字号",a.ButtonSize,12,28,v=>Save(s=>s with{Appearance=s.Appearance with{ButtonSize=v}}));
@@ -30,17 +43,65 @@ public sealed partial class NotificationOptionsPage : SettingsFormPage {
   Text("正文字体名称",a.MessageFontFile.Length>0?"":a.MessageFontFamily,v=>Save(s=>s with{Appearance=s.Appearance with{MessageFontFamily=v,MessageFontFile=""}}));
   File("正文字体文件",a.MessageFontFile,v=>{string family=v.Length==0?"":FontImportService.Import(v);Save(s=>s with{Appearance=s.Appearance with{MessageFontFamily=family,MessageFontFile=v}});},[".ttf",".otf"],"跟随系统字体");
   Note("短消息按内容收紧高度，长消息在最大高度内滚动。默认 Segoe UI Variable，中文由系统回退字体显示。可填写已安装的系统字体名称。");
-  Section("通知行为");Toggle("触摸友好托盘菜单",a.TouchFriendlyMenus,v=>Save(s=>s with{Appearance=s.Appearance with{TouchFriendlyMenus=v}}));Toggle("入场及退场动画",a.Animation,v=>Save(s=>s with{Appearance=s.Appearance with{Animation=v}}));
+  Fold("字体与字体文件",fontStart);
+  Section("通知行为");
+  Group("通知显示时长",()=>{
+   Number("普通消息（秒）",Current.NormalSeconds,1,120,v=>Save(s=>s with{NormalSeconds=(int)v}));
+   Number("重要消息（秒）",Current.ImportantSeconds,1,120,v=>Save(s=>s with{ImportantSeconds=(int)v}));
+   Number("呼叫提醒（秒）",Current.CallingSeconds,1,3600,v=>Save(s=>s with{CallingSeconds=(int)v}));
+  });
+  Note("原生模式保留 ContentDialog 自带动画；下方自定义动画选项仅在材质模式显示。");
+  int animationStart=Rows.Children.Count;
+  Section("材质弹窗动画");
+  var motion=a.MaterialMotion;
+  var entranceValues=new[]{MaterialEntrance.None,MaterialEntrance.Fade,MaterialEntrance.Top,MaterialEntrance.Bottom,MaterialEntrance.Left,MaterialEntrance.Right};
+  var exitValues=new[]{MaterialExit.None,MaterialExit.Fade,MaterialExit.Top,MaterialExit.Bottom,MaterialExit.Left,MaterialExit.Right};
+  var entrance=Choice("入场动画",["无","渐显","从上方滑入","从下方滑入","从左侧滑入","从右侧滑入"],Array.IndexOf(entranceValues,motion.Entrance),i=>Save(s=>s with{Appearance=s.Appearance with{MaterialMotion=s.Appearance.MaterialMotion with{Entrance=entranceValues[i]}}}));
+  var exit=Choice("退场动画",["无","渐隐","向上方滑出","向下方滑出","向左侧滑出","向右侧滑出"],Array.IndexOf(exitValues,motion.Exit),i=>Save(s=>s with{Appearance=s.Appearance with{MaterialMotion=s.Appearance.MaterialMotion with{Exit=exitValues[i]}}}));
+  int motionDetails=Rows.Children.Count;
+  var enterTime=Number("入场时长（毫秒）",motion.EntranceMilliseconds,80,1500,v=>Save(s=>s with{Appearance=s.Appearance with{MaterialMotion=s.Appearance.MaterialMotion with{EntranceMilliseconds=(int)v}}}));
+  var exitTime=Number("退场时长（毫秒）",motion.ExitMilliseconds,80,1500,v=>Save(s=>s with{Appearance=s.Appearance with{MaterialMotion=s.Appearance.MaterialMotion with{ExitMilliseconds=(int)v}}}));
+  var enterEase=Number("入场缓动系数",motion.EntranceExponent,0,10,v=>Save(s=>s with{Appearance=s.Appearance with{MaterialMotion=s.Appearance.MaterialMotion with{EntranceExponent=v}}}));
+  var exitEase=Number("退场缓动系数",motion.ExitExponent,0,10,v=>Save(s=>s with{Appearance=s.Appearance with{MaterialMotion=s.Appearance.MaterialMotion with{ExitExponent=v}}}));
+  Button("恢复动画默认值",()=>{
+   entrance.SelectedIndex=(int)MaterialEntrance.Fade;exit.SelectedIndex=(int)MaterialExit.Fade;
+   enterEase.Value=3;exitEase.Value=3;enterTime.Value=260;exitTime.Value=200;
+   Save(s=>s with{Appearance=s.Appearance with{MaterialMotion=new()}});return System.Threading.Tasks.Task.CompletedTask;
+  });
+  Fold("动画时长与强度",motionDetails);
+  while(Rows.Children.Count>animationStart){var child=Rows.Children[animationStart];Rows.Children.RemoveAt(animationStart);animationRows.Children.Add(child);}Rows.Children.Add(animationRows);UpdatePresentation();
   Toggle("卡片阴影",a.Shadow,v=>Save(s=>s with{Appearance=s.Appearance with{Shadow=v}}));
   Toggle("背景遮罩",a.Mask,v=>Save(s=>s with{Appearance=s.Appearance with{Mask=v}}));
   Toggle("通知置顶",a.AlwaysOnTop,v=>Save(s=>s with{Appearance=s.Appearance with{AlwaysOnTop=v}}));
   Section("呼叫提醒");Toggle("直到确认",calling.UntilAcknowledged,v=>Save(s=>s with{Calling=s.Calling with{UntilAcknowledged=v}}),"开启后不自动关闭；另一个按钮用于静音。");
-  Toggle("呼吸提示动画",calling.Breathing,v=>Save(s=>s with{Calling=s.Calling with{Breathing=v}}));
-  Number("呼吸节奏（每分钟）",calling.BeatsPerMinute,10,120,v=>Save(s=>s with{Calling=s.Calling with{BeatsPerMinute=(int)v}}));
-  Section("文字与按钮");Text("底部说明",a.Footer,v=>Save(s=>s with{Appearance=s.Appearance with{Footer=v}}));
+  var breathe=new ToggleSwitch{IsOn=calling.Breathing,OnContent="",OffContent="",MinHeight=36};
+  Row("呼叫呼吸效果",breathe,"原生与材质弹窗均可用；入场完成后边框呼吸，默认关闭。");
+  var bpm=Number("呼叫呼吸 BPM",calling.BeatsPerMinute,10,120,v=>Save(s=>s with{Calling=s.Calling with{BeatsPerMinute=(int)v}}));
+  void UpdateCalling(){bpm.IsEnabled=breathe.IsOn;}
+  breathe.Toggled+=(_,_)=>{Save(s=>s with{Calling=s.Calling with{Breathing=breathe.IsOn}});UpdateCalling();};
+  presentation.SelectionChanged+=(_,_)=>UpdateCalling();UpdateCalling();
+  int logoStart=Rows.Children.Count;
+  Toggle("显示 QQ 标识",a.ShowQQLogo,v=>Save(s=>s with{Appearance=s.Appearance with{ShowQQLogo=v}}));
+  Toggle("显示 MYXMJY Logo",a.ShowDeveloperLogo,v=>Save(s=>s with{Appearance=s.Appearance with{ShowDeveloperLogo=v}}));
+  Section("通知等级颜色");
+  AddNoticeColor("普通消息",a.NormalColor,(s,v)=>s with{Appearance=s.Appearance with{NormalColor=v}});
+  AddNoticeColor("重要消息",a.ImportantColor,(s,v)=>s with{Appearance=s.Appearance with{ImportantColor=v}});
+  AddNoticeColor("呼叫提醒",a.CallingColor,(s,v)=>s with{Appearance=s.Appearance with{CallingColor=v}});
+  Fold("通知颜色与标识",logoStart);
+  int buttonStart=Rows.Children.Count;
+  Text("底部说明",a.Footer,v=>Save(s=>s with{Appearance=s.Appearance with{Footer=v}}));
   Text("确认按钮文字",a.ConfirmText,v=>Save(s=>s with{Appearance=s.Appearance with{ConfirmText=v}}));Text("关闭按钮文字",a.CloseText,v=>Save(s=>s with{Appearance=s.Appearance with{CloseText=v}}));
   File("确认按钮图标",a.ConfirmIcon,v=>Save(s=>s with{Appearance=s.Appearance with{ConfirmIcon=v}}),[".png",".jpg",".ico"],"无图标");
   File("关闭按钮图标",a.CloseIcon,v=>Save(s=>s with{Appearance=s.Appearance with{CloseIcon=v}}),[".png",".jpg",".ico"],"无图标");
+  Fold("说明文字、按钮与图标",buttonStart);
   Note("通知预览在调试页，默认不播放声音。");
+ }
+ private void AddNoticeColor(string title,string selected,Func<RuleSettings,string,RuleSettings> update){
+  var picker=new ColorPicker{IsAlphaEnabled=false,MaxWidth=300,HorizontalAlignment=HorizontalAlignment.Stretch};
+  if(uint.TryParse(selected.TrimStart('#'),System.Globalization.NumberStyles.HexNumber,null,out var value))picker.Color=global::Windows.UI.Color.FromArgb(255,(byte)(value>>16),(byte)(value>>8),(byte)value);
+  var panel=new StackPanel{Spacing=8};panel.Children.Add(picker);
+  var actions=new StackPanel{Orientation=Orientation.Horizontal,Spacing=8};var apply=new Button{Content="应用颜色"};var reset=new Button{Content="恢复默认"};
+  apply.Click+=(_,_)=>{var c=picker.Color;Save(s=>update(s,$"#FF{c.R:X2}{c.G:X2}{c.B:X2}"));};reset.Click+=(_,_)=>Save(s=>update(s,""));actions.Children.Add(apply);actions.Children.Add(reset);panel.Children.Add(actions);
+  Rows.Children.Add(new Expander{Style=(Style)Application.Current.Resources["SettingExpanderStyle"],Header=title,Content=panel,HorizontalAlignment=HorizontalAlignment.Stretch,HorizontalContentAlignment=HorizontalAlignment.Stretch});
  }
 }

@@ -50,6 +50,22 @@ namespace RimeNotice.Services
             int disabled=1;
             DwmSetWindowAttribute(hwnd,2,ref disabled,sizeof(int));
         }
+        internal static void ConfigureNativeNotificationHost(Window window)
+        {
+            // Apply after the transparent frame is initialized, not before it can reset DWM policy.
+            RemoveResizableFrame(window);UseTransparentNativeBackground(window);
+            var hwnd=WinRT.Interop.WindowNative.GetWindowHandle(window);
+            int disabled=1,noBorder=unchecked((int)0xFFFFFFFE),noCorners=1,allowTransitions=0;
+            int ncHr=DwmSetWindowAttribute(hwnd,2,ref disabled,sizeof(int));
+            int borderHr=DwmSetWindowAttribute(hwnd,34,ref noBorder,sizeof(int));
+            int cornerHr=DwmSetWindowAttribute(hwnd,33,ref noCorners,sizeof(int));
+            int transitionHr=DwmSetWindowAttribute(hwnd,3,ref allowTransitions,sizeof(int));
+            int readHr=GetDwmInt(hwnd,1,out int ncEnabled,sizeof(int));
+            ServiceDiagnostics.Set("原生父窗口边界",$"非客户区关闭：0x{ncHr:X8}；读取：0x{readHr:X8}，enabled={ncEnabled}；边框：0x{borderHr:X8}；实际阴影待验收");
+            if(DiagnosticCapture.Active)DiagnosticCapture.Write("window.host-decoration",new{hwnd=hwnd.ToInt64(),ncHr,borderHr,cornerHr,transitionHr,readHr,ncEnabled});
+        }
+        [DllImport("dwmapi.dll",EntryPoint="DwmGetWindowAttribute")]
+        private static extern int GetDwmInt(IntPtr hwnd,int attribute,out int value,int size);
         internal static void ResetTrayHost(Window window)
         {
             // Restore layout/rendering while fully transparent before reopening a flyout.
@@ -68,6 +84,14 @@ namespace RimeNotice.Services
             // Windows owns the region after a successful SetWindowRgn.
         }
         internal static void BringToForeground(Window window) => SetForegroundWindow(WinRT.Interop.WindowNative.GetWindowHandle(window));
+        // Cloaking is used only to prepare the same real window's first frame.
+        // It is not an animation and does not disable DWM transitions.
+        internal static void CloakNotification(Window window, bool cloak)
+        {
+            int value = cloak ? 1 : 0;
+            int result = DwmSetWindowAttribute(WinRT.Interop.WindowNative.GetWindowHandle(window), 13, ref value, sizeof(int));
+            if (result < 0) Marshal.ThrowExceptionForHR(result);
+        }
         [DllImport("user32.dll")]
         private static extern bool SetForegroundWindow(IntPtr hwnd);
         [DllImport("user32.dll", SetLastError = true)]
@@ -83,6 +107,11 @@ namespace RimeNotice.Services
             if (previous == 0 && error != 0) throw new Win32Exception(error);
             if (!SetLayeredWindowAttributes(hwnd, 0, opacity, 2 /* LWA_ALPHA */))
                 throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+        internal static bool HasLayeredStyle(Window window)=>((uint)GetWindowLongW(WinRT.Interop.WindowNative.GetWindowHandle(window),GWL_EXSTYLE)&WS_EX_LAYERED)!=0;
+        internal static void RestoreOpacity(Window window,bool originallyLayered){
+            SetOpacity(window,255);
+            if(!originallyLayered){IntPtr handle=WinRT.Interop.WindowNative.GetWindowHandle(window);int style=GetWindowLongW(handle,GWL_EXSTYLE);SetWindowLongW(handle,GWL_EXSTYLE,(int)((uint)style&~WS_EX_LAYERED));}
         }
 
         [DllImport("user32.dll", SetLastError = true)]

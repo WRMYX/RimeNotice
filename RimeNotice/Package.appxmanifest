@@ -13,13 +13,13 @@
   <Identity
     Name="f6503b26-5990-4286-99ea-d4c7221d0301"
     Publisher="CN=Admin"
-    Version="1.0.1.0" />
+    Version="1.0.15.0" />
 
 
 
   <Properties>
     <DisplayName>RimeNotice</DisplayName>
-    <PublisherDisplayName>Admin</PublisherDisplayName>
+    <PublisherDisplayName>MYXMJY</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 

@@ -12,7 +12,6 @@ namespace RimeNotice;
 public sealed partial class MainWindow : Window
 {
     public static NoticePresenter? Notices { get; private set; }
-    private bool _listenerStarted;
     private bool _restoringSelection;
     private object? _lastNavigationItem;
 
@@ -22,12 +21,6 @@ public sealed partial class MainWindow : Window
         WindowRoot.RequestedTheme = SettingsStore.Shared.Current.Theme switch { 1 => ElementTheme.Light, 2 => ElementTheme.Dark, _ => ElementTheme.Default };
         Notices = new NoticePresenter(() => Theme);
         QQNotificationListener.Shared.MessageReceived += Notices.Enqueue;
-        WindowRoot.Loaded += (_, _) =>
-        {
-            if (_listenerStarted) return;
-            _listenerStarted = true;
-            _ = QQNotificationListener.Shared.StartAsync();
-        };
         AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "icon.ico"));
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
@@ -144,7 +137,7 @@ public sealed partial class MainWindow : Window
         Type page = key switch
         {
             "appearance" => typeof(NotificationOptionsPage), "audio" => typeof(AudioPage), "reception" => typeof(ReceptionPage), "debug" => typeof(DebugPage), "rules" => typeof(RulesPage), "settings" => typeof(SettingsPage),
-            "updates" => typeof(UpdatesPage), "about" => typeof(AboutPage), _ => typeof(MonitorPage)
+            "voices" => typeof(VoicePackagesPage), "updates" => typeof(UpdatesPage), "about" => typeof(AboutPage), _ => typeof(MonitorPage)
         };
         try
         {
@@ -166,7 +159,7 @@ public sealed partial class MainWindow : Window
         NavigationError.IsOpen = false;
         PageTitle.Text = key switch
         {
-            "appearance" => "通知外观", "audio" => "声音与语音", "reception" => "接收兼容", "debug" => "调试", "rules" => "提醒规则", "settings" => "常规", "updates" => "更新", "about" => "关于", _ => "消息接收"
+            "voices" => "语音包下载", "appearance" => "通知外观", "audio" => "声音与语音", "reception" => "接收兼容", "debug" => "调试", "rules" => "提醒规则", "settings" => "常规", "updates" => "更新", "about" => "关于", _ => "消息接收"
         };
         PageDescription.Text = key switch
         {
@@ -175,7 +168,8 @@ public sealed partial class MainWindow : Window
             "reception" => "配置接收范围、兼容来源和附件预览。",
             "debug" => "检查通知权限、接收流程与运行诊断。",
             "rules" => "设置消息分级、过滤与呼叫提醒。",
-            "settings" => "设置自启动、外观和通知显示时长。",
+            "settings" => "设置自启动、应用主题和托盘菜单。",
+            "voices" => "下载中文语音 MSIX，查看并打开文件位置。",
             "updates" => "检查版本、查看更新说明并安装更新。",
             "about" => "了解 RimeNotice。",
             _ => "查看 QQ 消息接收状态。"

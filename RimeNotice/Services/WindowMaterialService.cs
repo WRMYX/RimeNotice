@@ -13,12 +13,18 @@ public static class WindowMaterialService {
   if(!window.DispatcherQueue.HasThreadAccess){window.DispatcherQueue.TryEnqueue(()=>Apply(window,root,material,color));return;}
   var state=States.GetValue(window,w=>new MaterialState(w,root));state.Material=material;state.Color=color;state.Request();
  }
+ // Notification first-frame preparation runs on its UI thread before uncloaking.
+ public static void ApplyNotificationNow(Window window,Panel root,WindowMaterial material,string color="") {
+  if(!window.DispatcherQueue.HasThreadAccess)throw new InvalidOperationException("通知材质必须在所属 UI 线程初始化。");
+  var state=States.GetValue(window,w=>new MaterialState(w,root));state.Material=material;state.Color=color;state.ApplyNow();
+ }
  private sealed class MaterialState {
   private readonly Window _window;private readonly Panel _root;private bool _pending,_closed;
   public WindowMaterial Material;public string Color="";
   public MaterialState(Window window,Panel root){_window=window;_root=root;root.ActualThemeChanged+=ThemeChanged;window.Closed+=(_,_)=>{_closed=true;root.ActualThemeChanged-=ThemeChanged;};}
   private void ThemeChanged(FrameworkElement sender,object args)=>Request();
   public void Request(){if(_closed||_pending)return;_pending=true;if(!_window.DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low,Update))_pending=false;}
+  public void ApplyNow(){if(!_closed)Update();}
   private void Update(){
    _pending=false;if(_closed)return;
    var window=_window;var root=_root;var material=Material;var color=Color;

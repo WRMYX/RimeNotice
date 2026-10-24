@@ -27,7 +27,7 @@ public partial class App : Application
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
         var activation = AppInstance.GetCurrent().GetActivatedEventArgs();
-        bool startup = IsStartup(activation) || Array.Exists(Environment.GetCommandLineArgs(), a => a == "--startup");
+        bool settings = Array.Exists(Environment.GetCommandLineArgs(), a => a == "--settings");
         _instance = AppInstance.FindOrRegisterForKey("RimeNotice.Main");
         if (!_instance.IsCurrent)
         {
@@ -37,8 +37,13 @@ public partial class App : Application
         _updateMutex=new System.Threading.Mutex(false,@"Local\RimeNotice.SingleInstance");
         try{_ownsUpdateMutex=_updateMutex.WaitOne(0);}catch(System.Threading.AbandonedMutexException){_ownsUpdateMutex=true;}
         if(!_ownsUpdateMutex){_updateMutex.Dispose();_updateMutex=null;Exit();return;}
+        var settingsStore=SettingsStore.Shared;
+        bool freshInstall=settingsStore.IsFreshInstall;
+        // Persist the first-run boundary before attempting any system startup registration.
+        if(freshInstall){try{settingsStore.Save(settingsStore.Current);}catch(Exception ex){CrashLog.Write("首次设置保存",ex);freshInstall=false;}}
         Main = new MainWindow();
-        _instance.Activated += (_, activationArgs) => { if (!IsStartup(activationArgs)) Main.DispatcherQueue.TryEnqueue(() => ShowMain()); };
+        _ = StartupService.InitializeForNewUserAsync(freshInstall);
+        _instance.Activated += (_, activationArgs) => { if (activationArgs.Data is global::Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launch && Array.Exists(launch.Arguments.Split(' '), a => a == "--settings")) Main.DispatcherQueue.TryEnqueue(() => ShowMain()); };
         try
         {
             _tray = new NativeTrayIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "icon.ico"));
@@ -55,9 +60,10 @@ public partial class App : Application
             if (!_exiting && _tray is not null) { e.Cancel = true; Main.AppWindow.Hide(); }
         };
         Main.Closed += (_, _) => { if (!_exiting) ExitApplication(); };
-        if (startup && _tray is not null)
-            await QQNotificationListener.Shared.StartAsync(requestPermission: false);
-        else Main.Activate();
+        // Listening must not depend on a visible settings window or its Loaded event.
+        _ = QQNotificationListener.Shared.StartAsync(requestPermission: false);
+        if (_tray is null || settings) Main.Activate();
+        else Main.AppWindow.Hide();
     }
     private static bool IsStartup(AppActivationArguments activation) =>
         activation.Kind == ExtendedActivationKind.StartupTask || activation.Data is global::Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launch && Array.Exists(launch.Arguments.Split(' '), a => a == "--startup");

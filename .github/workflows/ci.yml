@@ -1,24 +1,27 @@
-name: Build and checks
+name: Build and checks / 编译与检查
 on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
   check:
+    name: Checks / 自动检查
     runs-on: windows-latest
     timeout-minutes: 35
     defaults:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v4
+      - name: Checkout / 检出源码
+        uses: actions/checkout@v6
+      - name: Setup .NET / 配置 .NET
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.402'
-      - name: Initialize build tools
+      - name: Initialize build tools / 初始化构建工具
         run: ./tools/Initialize-Build.ps1
-      - name: Rules, payload revisions and font validation
+      - name: Rules and payload checks / 规则与内容检查
         run: dotnet run --project tools/RuleChecks -c Release
-      - name: Portable updater and rollback
+      - name: Portable updater and rollback / 便携更新与回滚
         run: ./tests/RimeNotice.Update.Tests/Test-PortableUpdate.ps1
-      - name: Build application and native updater
+      - name: Build app and updater / 编译应用与更新器
         run: ./tools/Build-Payload.ps1 -OutputDirectory artifacts/CI
