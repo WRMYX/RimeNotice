@@ -9,8 +9,8 @@
 
 ![RimeNotice 宣传封面：让重要消息，被看见。](assets/readme/rimenotice-cover.png)
 
-<!-- BILIBILI_VIDEO_URL: 视频发布后，将下一行文字替换为 [在哔哩哔哩观看宣传片](你的视频完整链接) -->
-宣传片：哔哩哔哩视频即将上线。
+<!-- BILIBILI_VIDEO_URL: 宣传片链接 -->
+[在哔哩哔哩观看：雾凇通知 - RimeNotice 发布 | 快闪 | 宣传片](https://www.bilibili.com/video/BV1QXH56UEM4/)
 
 老师们在群里发送消息，课堂电脑右下角的系统通知却很容易被忽略。RimeNotice（RN）接收 QQ 的 Windows 通知，将需要注意的内容显示为独立通知卡片，并提供重要消息、呼叫提醒、提示音和正文朗读。
 
