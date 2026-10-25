@@ -7,9 +7,24 @@
   <p><strong>WinUI 3</strong> / <strong>.NET 10</strong> / <strong>Windows App SDK</strong></p>
 </div>
 
+![RimeNotice 宣传封面：让重要消息，被看见。](assets/readme/rimenotice-cover.png)
+
+<!-- BILIBILI_VIDEO_URL: 视频发布后，将下一行文字替换为 [在哔哩哔哩观看宣传片](你的视频完整链接) -->
+宣传片：哔哩哔哩视频即将上线。
+
 老师们在群里发送消息，课堂电脑右下角的系统通知却很容易被忽略。RimeNotice（RN）接收 QQ 的 Windows 通知，将需要注意的内容显示为独立通知卡片，并提供重要消息、呼叫提醒、提示音和正文朗读。
 
 [功能介绍](#功能介绍) · [安装与上手](#安装与上手) · [软件更新](#软件更新) · [源码构建](#源码构建) · [自动打包与发布](#自动打包与发布) · [反馈与贡献](#反馈与贡献)
+
+## 实机展示
+
+### 消息接收
+
+![RimeNotice 消息接收页面实机截图](assets/readme/rimenotice-receiving.png)
+
+### 关于 RimeNotice
+
+![RimeNotice 关于页面实机截图](assets/readme/rimenotice-about.png)
 
 ## 功能介绍
 
