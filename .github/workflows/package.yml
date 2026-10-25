@@ -27,7 +27,7 @@ jobs:
       - name: Checkout / 检出源码
         uses: actions/checkout@v6
       - name: Setup .NET / 配置 .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: '10.0.402'
       - name: Resolve version / 解析版本
@@ -87,18 +87,58 @@ jobs:
             "RN_STORE_READY=true" >> $env:GITHUB_ENV
           }
           Get-ChildItem artifacts/Release -Filter *.zip | ForEach-Object { (Get-FileHash $_.FullName).Hash.ToLowerInvariant()+'  '+$_.Name } | Set-Content artifacts/Release/SHA256.txt
-      - name: Upload artifacts / 上传构建产物
-        uses: actions/upload-artifact@v4
+      - name: Validate release artifacts / 校验发布产物
+        run: |
+          $portable = @(Get-ChildItem artifacts/Release -Filter '*-Portable-x64.zip' -File)
+          $msix = @(Get-ChildItem artifacts/Release -Filter '*-MSIX-with-certificate-x64.zip' -File)
+          if ($portable.Count -ne 1 -or $msix.Count -ne 1) { throw 'Expected exactly one portable archive and one MSIX archive.' }
+          $checksumPath = 'artifacts/Release/SHA256.txt'
+          if (!(Test-Path -LiteralPath $checksumPath -PathType Leaf)) { throw 'Missing SHA256.txt.' }
+          $checksums = @{}
+          foreach ($line in Get-Content -LiteralPath $checksumPath) {
+            if ($line -notmatch '^([0-9a-fA-F]{64})  (.+)$') { throw 'Invalid SHA256.txt entry.' }
+            $hash = $Matches[1]
+            $name = $Matches[2]
+            if ($checksums.ContainsKey($name)) { throw "Duplicate checksum entry: $name" }
+            $checksums[$name] = $hash
+          }
+          if ($checksums.Count -ne 2) { throw 'Expected checksums for exactly two release archives.' }
+          foreach ($archive in @($portable[0], $msix[0])) {
+            if ($archive.Length -eq 0) { throw "Empty release archive: $($archive.Name)" }
+            if (!$checksums.ContainsKey($archive.Name)) { throw "Missing checksum for $($archive.Name)" }
+            $actualHash = (Get-FileHash -LiteralPath $archive.FullName -Algorithm SHA256).Hash
+            if ($actualHash -ne $checksums[$archive.Name]) { throw "Checksum mismatch: $($archive.Name)" }
+          }
+          if ($env:RN_STORE_READY -eq 'true') {
+            $store = @(Get-ChildItem artifacts/Store -Filter '*.msix' -File)
+            if ($store.Count -ne 1 -or $store[0].Length -eq 0) { throw 'Expected exactly one nonempty Store package.' }
+          }
+      - name: Upload portable archive / 上传便携版
+        uses: actions/upload-artifact@v7.0.2
         with:
-          name: RimeNotice-Release-x64
-          path: artifacts/Release/*
+          name: RimeNotice-Portable-x64
+          path: |
+            artifacts/Release/*-Portable-x64.zip
+            artifacts/Release/SHA256.txt
+          archive: true
           if-no-files-found: error
-      - name: Upload artifacts / 上传构建产物
-        uses: actions/upload-artifact@v4
+      - name: Upload MSIX and public certificate / 上传 MSIX 与证书
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: RimeNotice-MSIX-with-certificate-x64
+          path: |
+            artifacts/Release/*-MSIX-with-certificate-x64.zip
+            artifacts/Release/SHA256.txt
+          archive: true
+          if-no-files-found: error
+      - name: Upload Store package / 上传 Store 提交包
+        uses: actions/upload-artifact@v7.0.2
         if: env.RN_STORE_READY == 'true'
         with:
           name: RimeNotice-Store-x64
           path: artifacts/Store/*.msix
+          archive: true
+          if-no-files-found: error
       - name: Create draft release / 创建草稿发布
         if: steps.version.outputs.tag != ''
         env:

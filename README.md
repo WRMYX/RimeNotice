@@ -13,7 +13,7 @@
 
 ## 功能介绍
 
-当前源码版本：**1.0.15.0**。发布包与更新说明以 [Releases](https://github.com/WRMYX/RimeNotice/releases) 为准。
+**v1.1.0** 发布说明见 [版本介绍](docs/releases/v1.1.0.md)，对应包版本为 `1.1.0.0`。发布包与公开状态以 [Releases](https://github.com/WRMYX/RimeNotice/releases) 为准；草稿不会被官网或应用的正式更新检查选中。
 
 ### 接收与提醒
 
@@ -122,7 +122,15 @@ $portable = ./tools/Build-Portable.ps1 -OutputDirectory artifacts/Portable
 <details>
 <summary>GitHub Actions、签名与商店打包</summary>
 
-`.github/workflows/ci.yml` 编译主程序与更新器，并运行离线规则和隔离更新回滚检查。`package.yml` 可手动生成构建产物，或使用 `vMAJOR.MINOR.PATCH` 标签生成草稿 Release。三段标签映射为四段包版本，例如 `v1.0.1` 对应 `1.0.1.0`。
+`.github/workflows/ci.yml` 编译主程序与更新器，并运行离线规则和隔离更新回滚检查。`package.yml` 可手动生成构建产物，或使用 `vMAJOR.MINOR.PATCH` 标签生成草稿 Release。三段标签映射为四段包版本，例如 `v1.1.0` 对应 `1.1.0.0`。手动运行时留空版本只生成产物，版本来自源码 manifest，不自动沿用已有草稿标签。
+
+Actions 的 Artifacts 分别显示：
+
+- `RimeNotice-Portable-x64`：便携 ZIP 与 `SHA256.txt`。
+- `RimeNotice-MSIX-with-certificate-x64`：MSIX＋公开证书 ZIP 与 `SHA256.txt`。
+- `RimeNotice-Store-x64`：商店提交 MSIX，只在生成商店包后上传。
+
+上传前检查两个发布 ZIP 是否齐全、非空并与校验文件一致。Release 页面仍单独附带两个 ZIP 与 `SHA256.txt`，不把商店提交包作为侧载安装包发布。旧的 Actions 运行保留原有 `RimeNotice-Release-x64` 合集，分组调整只影响新运行。
 
 工作流不会自动公开草稿，也不会自动提交到 Microsoft Store。生成的 Release 附件名称与 RN 更新器约定一致。
 

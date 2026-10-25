@@ -14,7 +14,7 @@ jobs:
       - name: Checkout / 检出源码
         uses: actions/checkout@v6
       - name: Setup .NET / 配置 .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: '10.0.402'
       - name: Initialize build tools / 初始化构建工具
