@@ -7,7 +7,9 @@
      <TextBlock x:Name="StatusTitle" Text="正在检查通知访问权限" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap"/>
      <TextBlock x:Name="StatusDetail" Text="获得权限后，打开 RimeNotice 即自动接收。" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
      <Button x:Name="GrantPermission" Content="授予通知访问权限" Click="GrantPermission_Click" HorizontalAlignment="Left"/>
-     <InfoBar x:Name="LinkError" IsOpen="False" IsClosable="True" Severity="Error" Title="无法打开系统设置"/>
+     <Button x:Name="UseCompatibility" Content="改用 UIA 兼容接收" Click="UseCompatibility_Click" HorizontalAlignment="Left" Visibility="Collapsed"/>
+     <Button x:Name="UseSystem" Content="尝试系统通知接口" Click="UseSystem_Click" HorizontalAlignment="Left" Visibility="Collapsed"/>
+     <InfoBar x:Name="LinkError" IsOpen="False" IsClosable="True" Severity="Error" Title="接收操作未完成"/>
      <HyperlinkButton x:Name="PermissionLink" Content="打开 Windows 通知访问设置" Click="Permission_Click" HorizontalAlignment="Left" Padding="0,4"/>
     </StackPanel>
    </Border>

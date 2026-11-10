@@ -4,6 +4,8 @@ param(
     [string]$Version = '',
     [string]$OutputDirectory = '',
     [switch]$Store,
+    # A/B diagnosis only. Never use this switch for a release artifact.
+    [switch]$PreserveResourceIndex,
     [string]$StoreIdentityFile = '',
     [string]$CertificateThumbprint = $env:RN_SIGNING_THUMBPRINT
 )
@@ -37,32 +39,42 @@ $makeappx = Join-Path $sdk.FullName 'x64\makeappx.exe'
 $signtool = Join-Path $sdk.FullName 'x64\signtool.exe'
 $stage = Join-Path $projectRoot ('.tasks\msix-package-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
-if (-not $PublishedDirectory) {
-    $PublishedDirectory = Join-Path $stage 'payload'
-    $build = (Join-Path $stage 'build') + '\'
-    # Build the self-contained desktop payload, then create its full-trust package
-    # with MakeAppx; this avoids the SDK recipe task's dependency on Visual Studio.
-    & (Join-Path $PSScriptRoot 'Build-Payload.ps1') -OutputDirectory $PublishedDirectory -Version $Version | Out-Host
-
-}
-$PublishedDirectory = [IO.Path]::GetFullPath($PublishedDirectory)
-foreach ($required in @('Updater/RimeNotice.Updater.exe', 'Updater/RimeNotice.Updater.pri', 'Updater/Microsoft.UI.Xaml.dll', 'Updater/coreclr.dll', 'RimeNotice.exe', 'coreclr.dll', 'Microsoft.UI.Xaml.dll', 'RimeNotice.pri')) {
-    if (-not (Test-Path -LiteralPath (Join-Path $PublishedDirectory $required))) { throw "Missing payload: $required" }
-}
-$assets = Join-Path $PublishedDirectory 'Assets'
-New-Item -ItemType Directory -Path $assets -Force | Out-Null
-Copy-Item -LiteralPath (Get-ChildItem (Join-Path $projectRoot 'RimeNotice\Assets') -Filter '*.png').FullName -Destination $assets
-
-# Use a staging manifest; retain the project's publisher and package identity.
 [xml]$manifest = Get-Content -LiteralPath (Join-Path $projectRoot 'RimeNotice\Package.appxmanifest') -Raw
 if ($Store) {
- if (!$StoreIdentityFile -or !(Test-Path -LiteralPath $StoreIdentityFile)) { throw 'Store identity is not associated. Supply -StoreIdentityFile from Partner Center.' }
  $identity=Get-Content -LiteralPath $StoreIdentityFile -Raw | ConvertFrom-Json
  if (!$identity.Name -or !$identity.Publisher -or $identity.Publisher -notmatch '^CN=' -or !$identity.PublisherDisplayName) { throw 'Invalid Partner Center identity.' }
  $manifest.Package.Identity.SetAttribute('Name',[string]$identity.Name)
  $manifest.Package.Identity.SetAttribute('Publisher',[string]$identity.Publisher)
  $manifest.Package.Properties.PublisherDisplayName=[string]$identity.PublisherDisplayName
 }
+$resourceIndexName=if($PreserveResourceIndex){''}else{[string]$manifest.Package.Identity.Name}
+if (-not $PublishedDirectory) {
+    $PublishedDirectory = Join-Path $stage 'payload'
+    $build = (Join-Path $stage 'build') + '\'
+    # Build the self-contained desktop payload, then create its full-trust package
+    # with MakeAppx; this avoids the SDK recipe task's dependency on Visual Studio.
+    & (Join-Path $PSScriptRoot 'Build-Payload.ps1') -OutputDirectory $PublishedDirectory -Version $Version -ResourceIndexName $resourceIndexName | Out-Host
+
+}
+$PublishedDirectory = [IO.Path]::GetFullPath($PublishedDirectory)
+if(!$PreserveResourceIndex -and $PSBoundParameters.ContainsKey('PublishedDirectory')){
+ $inputPri=Join-Path $PublishedDirectory 'RimeNotice.pri'
+ if(!(Test-Path -LiteralPath $inputPri)){throw 'Missing source PRI.'}
+ $priDump=Join-Path $stage 'input-pri.xml'
+ & (Join-Path $sdk.FullName 'x64/makepri.exe') dump /if $inputPri /of $priDump | Out-Null
+ if($LASTEXITCODE -ne 0){throw 'Cannot inspect source PRI.'}
+ [xml]$sourcePri=Get-Content -LiteralPath $priDump -Raw
+ $primary=@($sourcePri.SelectNodes("//*[local-name()='ResourceMap']") | Where-Object {$_.primary -eq 'true'})
+ if($primary.Count -ne 1 -or $primary[0].name -ne $resourceIndexName){
+  # Do not patch or mutate the shared portable payload. Compile an isolated identity-specific copy.
+  $PublishedDirectory=Join-Path $stage 'identity-payload'
+  & (Join-Path $PSScriptRoot 'Build-Payload.ps1') -OutputDirectory $PublishedDirectory -Version $Version -ResourceIndexName $resourceIndexName | Out-Host
+ }
+}
+foreach ($required in @('Updater/RimeNotice.Updater.exe', 'Updater/RimeNotice.Updater.pri', 'Updater/Microsoft.UI.Xaml.dll', 'Updater/coreclr.dll', 'RimeNotice.exe', 'coreclr.dll', 'Microsoft.UI.Xaml.dll', 'RimeNotice.pri')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $PublishedDirectory $required))) { throw "Missing payload: $required" }
+}
+# Use a staging manifest; retain the project's publisher and package identity.
 $manifest.Package.Identity.SetAttribute('Version', $Version)
 $manifest.Package.Identity.SetAttribute('ProcessorArchitecture', 'x64')
 $app = $manifest.Package.Applications.Application
@@ -104,8 +116,8 @@ New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 $name = 'RimeNotice-' + $Version + '-x64-' + $(if ($Store) { 'Store' } else { 'MSIX' })
 $package = Join-Path $OutputDirectory ($name + '.msix')
 $publicCertificate = if ($Store) { $null } else { Join-Path $OutputDirectory ($name + '.cer') }
-& $makeappx pack /f $mappingPath /p $package /h SHA256 | Out-Host
-if ($LASTEXITCODE -ne 0) { throw 'MSIX validation/packaging failed.' }
+& $makeappx pack /f $mappingPath /p $package /h SHA256 > (Join-Path $stage 'makeappx-pack.log') 2>&1
+if ($LASTEXITCODE -ne 0) { throw "MSIX validation/packaging failed. See $stage/makeappx-pack.log" }
 
 # Create an isolated development certificate in memory; never add machine trust.
 if (-not $Store -and $CertificateThumbprint) {
@@ -139,8 +151,9 @@ try {
 }
 }
 $validation = Join-Path $stage 'validation'
-& $makeappx unpack /p $package /d $validation | Out-Host
-if ($LASTEXITCODE -ne 0) { throw 'Signed package unpack validation failed.' }
+& $makeappx unpack /p $package /d $validation > (Join-Path $stage 'makeappx-unpack.log') 2>&1
+if ($LASTEXITCODE -ne 0) { throw "Signed package unpack validation failed. See $stage/makeappx-unpack.log" }
+& (Join-Path $PSScriptRoot 'Test-MSIXPayload.ps1') -PackageDirectory $validation -ExpectedName ([string]$manifest.Package.Identity.Name) -ExpectedPublisher ([string]$manifest.Package.Identity.Publisher) -ExpectedVersion $Version -AllowLegacyResourceIndex:$PreserveResourceIndex | Out-Host
 if ((Get-FileHash (Join-Path $PublishedDirectory 'RimeNotice.exe')).Hash -ne (Get-FileHash (Join-Path $validation 'RimeNotice.exe')).Hash) { throw 'Packaged executable differs from build.' }
 if (-not $Store) {
 Add-Type -AssemblyName System.Security.Cryptography.Pkcs

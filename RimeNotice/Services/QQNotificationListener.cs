@@ -20,14 +20,34 @@ public sealed class QQNotificationListener {
  public int QueueOverflowCount {get;private set;}
  public void ReportQueueOverflow(){QueueOverflowCount++;OnUi(()=>StatusChanged?.Invoke());}
  private Action? _rescan;
- public async Task RequestAccessAsync(){await global::Windows.UI.Notifications.Management.UserNotificationListener.Current.RequestAccessAsync();_rescan?.Invoke();}
+ private bool _requestingAccess,_permissionAttempted;
+ public bool UsingCompatibility=>SettingsStore.Shared.Current.Reception.UseUIAutomation;
+ public bool CanRequestAccess=>!UsingCompatibility&&!_requestingAccess&&AccessStatus!="Allowed"&&!(_permissionAttempted&&AccessStatus=="Denied");
+ public async Task RequestAccessAsync(){
+  var ui=_ui??DispatcherQueue.GetForCurrentThread()??throw new InvalidOperationException("通知授权需要窗口 UI 线程。");
+  if(!ui.HasThreadAccess){
+   var done=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+   if(!ui.TryEnqueue(async()=>{try{await RequestAccessAsync();done.SetResult();}catch(Exception ex){done.SetException(ex);}}))throw new InvalidOperationException("通知授权的 UI 队列已停止。");
+   await done.Task;return;
+  }
+  if(!CanRequestAccess)return;
+  _requestingAccess=true;_permissionAttempted=true;OnUi(()=>StatusChanged?.Invoke());
+  try{
+   var access=await global::Windows.UI.Notifications.Management.UserNotificationListener.Current.RequestAccessAsync();
+   SetAccessStatus(access.ToString());ServiceDiagnostics.Set("通知授权请求",access.ToString());
+   if(access!=global::Windows.UI.Notifications.Management.UserNotificationListenerAccessStatus.Allowed)
+    SetStatus("通知访问尚未允许",access==global::Windows.UI.Notifications.Management.UserNotificationListenerAccessStatus.Denied?"Windows 未允许通知访问。请在系统设置开启，或选择 UIA 兼容接收。":"尚未完成授权；你可以再次点击授权按钮。",false);
+  }catch(Exception ex){SetAccessStatus("Error");ServiceDiagnostics.Error("通知授权",ex);ReportPresentationError(ex);SetStatus("无法请求通知访问",$"{ex.GetType().Name} / 0x{ex.HResult:X8}。可选择 UIA 兼容接收。",false);throw;}
+  finally{_requestingAccess=false;_rescan?.Invoke();OnUi(()=>StatusChanged?.Invoke());}
+ }
+ private void SetAccessStatus(string value){if(AccessStatus==value)return;AccessStatus=value;OnUi(()=>StatusChanged?.Invoke());}
  public long RuleFilteredCount {get;private set;}public long DeliveredCount {get;private set;}public long ScanCount {get;private set;}
  public long ReceivedCount {get;private set;}public long FilteredCount {get;private set;}
  public global::Windows.Storage.Streams.RandomAccessStreamReference? QQLogo {get;private set;}
  public string LastError {get;private set;}="无";public string AccessStatus {get;private set;}="未检查";public string PackageIdentity {get;private set;}="未打包";
  public string Title {get;private set;}="正在检查通知访问权限";public string Detail {get;private set;}="获得权限后自动接收。";public bool IsRunning {get;private set;}
  public event Action? StatusChanged;public event Action<IncomingNotice>? MessageReceived;
- public string DiagnosticSnapshot()=>$"包身份：{PackageIdentity}\n状态：{Title}\n扫描次数：{ScanCount}\n接收到的通知：{ReceivedCount}\n其他来源过滤：{FilteredCount}\n规则过滤：{RuleFilteredCount}\n已投递：{DeliveredCount}\n队列超限：{QueueOverflowCount}\n设置状态：{SettingsStore.Shared.LastError}\n最近错误：{LastError}\n{ServiceDiagnostics.Snapshot()}\n";
+ public string DiagnosticSnapshot()=>$"包身份：{PackageIdentity}\n接收来源：{(UsingCompatibility?"UIA 兼容":"系统通知接口")}\n通知授权状态：{AccessStatus}\n状态：{Title}\n扫描次数：{ScanCount}\n接收到的通知：{ReceivedCount}\n其他来源过滤：{FilteredCount}\n规则过滤：{RuleFilteredCount}\n已投递：{DeliveredCount}\n队列超限：{QueueOverflowCount}\n设置状态：{SettingsStore.Shared.LastError}\n最近错误：{LastError}\n{ServiceDiagnostics.Snapshot()}\n";
  private DispatcherQueue? _ui;
  private void OnUi(Action action){
   if(_stop.IsCancellationRequested)return;
@@ -43,26 +63,30 @@ public sealed class QQNotificationListener {
   _ui=DispatcherQueue.GetForCurrentThread()??throw new InvalidOperationException("消息接收必须从窗口 UI 线程启动。");
   _started=true;try{PackageIdentity=global::Windows.ApplicationModel.Package.Current.Id.FullName;}catch(Exception){}
   // The permission prompt needs the UI thread; polling runs on the thread pool so the window stays responsive.
-  if(requestPermission)try{var l=global::Windows.UI.Notifications.Management.UserNotificationListener.Current;if(l.GetAccessStatus()==global::Windows.UI.Notifications.Management.UserNotificationListenerAccessStatus.Unspecified)await l.RequestAccessAsync();}catch(Exception){}
+  if(requestPermission&&!UsingCompatibility)try{await RequestAccessAsync();}catch(Exception ex){ServiceDiagnostics.Error("初始通知授权",ex);}
   await Task.Run(PollLoopAsync);
  }
  private async Task PollLoopAsync() {
   using var wake=new NotificationChangeWaiter();_rescan=wake.Signal;
   SettingsStore.Shared.Changed+=wake.Signal;
   try {
-  var sdk=new SystemNotificationSource(false);var uia=new UIAutomationMessageSource();
+  var sdk=new SystemNotificationSource();var uia=new UIAutomationMessageSource();
   bool? mode=null;bool initialized=false;var known=new NotificationRevisionTracker();var diagnosticIds=new HashSet<string>();
   while(!_stop.IsCancellationRequested) {
    try {
     var options=SettingsStore.Shared.Current.Reception;
     QQImageIndex.Shared.Configure(options);
-    bool compatible=options.UseUIAutomation||PackageIdentity=="未打包";
-    wake.Configure(options.EventDriven&&!compatible);
-    ServiceDiagnostics.Set("接收方式",compatible?"UIA 扫描（便携版自动兼容或手动开启）":wake.Subscribed?"通知事件 + 30 秒核对":options.EventDriven?"事件订阅失败，回退扫描":"定时扫描");
+    bool compatible=options.UseUIAutomation;
     if(mode!=compatible){known.Clear();diagnosticIds.Clear();initialized=false;mode=compatible;}
     IMessageSource source=compatible?uia:sdk;var snapshot=await source.PollAsync(_stop.Token);ScanCount++;
-    AccessStatus=compatible?"UIA":snapshot.Ready?"Allowed":"Denied";
-    if(!snapshot.Ready){known.Clear();diagnosticIds.Clear();initialized=false;SetStatus(snapshot.Status,snapshot.Detail,false);}
+    SetAccessStatus(compatible?"UIA":snapshot.AccessStatus??"Error");
+    wake.Configure(options.EventDriven&&!compatible&&snapshot.Ready);
+    ServiceDiagnostics.Set("接收方式",compatible?"UIA 扫描（用户选择；需可见 QQ 横幅）":wake.Subscribed?"系统通知事件 + 30 秒核对":snapshot.Ready?"系统通知定时核对":"系统通知接口等待授权或恢复");
+    if(!snapshot.Ready){
+     // Temporary scan failures must not turn the first recovered messages into an ignored baseline.
+     if(!compatible&&snapshot.AccessStatus is "Denied" or "Unspecified"){known.Clear();diagnosticIds.Clear();initialized=false;}
+     SetStatus(snapshot.Status,snapshot.Detail,false);
+    }
     else {
      var ids=snapshot.Notices.Select(n=>n.Key).ToHashSet();
      foreach(var n in snapshot.Notices) {
@@ -83,11 +107,12 @@ public sealed class QQNotificationListener {
       OnUi(()=>MessageReceived?.Invoke(notice));
      }
      diagnosticIds=ids;known.Retain(ids);initialized=true;
-     SetStatus("正在接收 QQ 消息",snapshot.Detail,true);
+     SetStatus(compatible?"UIA 兼容扫描运行中":"系统通知接口已就绪",snapshot.Detail,true);
     }
    }catch(OperationCanceledException)when(_stop.IsCancellationRequested){break;}
    catch(Exception ex){SetStatus("接收暂不可用","会自动重试，请查看调试诊断。",false);ReportPresentationError(ex);}
-   try{await wake.WaitAsync(TimeSpan.FromSeconds(wake.Subscribed?30:SettingsStore.Shared.Current.Reception.ScanSeconds),_stop.Token);}catch(OperationCanceledException){break;}
+   double interval=SettingsStore.Shared.Current.Reception.ScanSeconds;
+   try{await wake.WaitAsync(TimeSpan.FromSeconds(wake.Subscribed?30:!IsRunning&&!UsingCompatibility?Math.Max(3,interval):interval),_stop.Token);}catch(OperationCanceledException){break;}
   }
  }
  finally { _rescan=null;SettingsStore.Shared.Changed-=wake.Signal; }

@@ -1,5 +1,5 @@
 #Requires -Version 7.2
-param([Parameter(Mandatory)][string]$OutputDirectory,[string]$Version='')
+param([Parameter(Mandatory)][string]$OutputDirectory,[string]$Version='',[string]$ResourceIndexName='')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'Initialize-Build.ps1')
 if(!$Version){[xml]$m=Get-Content (Join-Path $rnRoot 'RimeNotice/Package.appxmanifest') -Raw;$Version=[string]$m.Package.Identity.Version}
@@ -14,7 +14,12 @@ if(!(Test-Path $msbuild) -or (Get-Item $msbuild).VersionInfo.FileMajorPart -lt 1
 # Fresh output directories avoid carrying stale XBF files between release builds.
 $build=Join-Path $rnRoot ('.tasks/build-'+[guid]::NewGuid().ToString('N'))
 foreach($item in @(@{Project='RimeNotice/RimeNotice.csproj';Destination=$OutputDirectory;Name='main'},@{Project='tools/RimeNotice.Updater/RimeNotice.Updater.csproj';Destination=(Join-Path $OutputDirectory 'Updater');Name='updater'})){
- & $msbuild @hostArgs (Join-Path $rnRoot $item.Project) /restore /t:Publish /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64 "/p:Version=$Version" "/p:OutputPath=$build/$($item.Name)/" /p:WindowsPackageType=None /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false /p:WindowsAppSDKSelfContained=true /p:SelfContained=true /p:PublishTrimmed=false /p:PublishReadyToRun=false "/p:PublishDir=$($item.Destination)/" /p:UseSharedCompilation=false /p:BuildInParallel=false /m:1 /v:minimal /nologo
+ $resourceArgs=@()
+ if($item.Name -eq 'main' -and $ResourceIndexName){
+  if($ResourceIndexName -notmatch '^[A-Za-z0-9.-]+$'){throw 'Invalid resource index name.'}
+  $resourceArgs=@("/p:ProjectPriIndexName=$ResourceIndexName",'/p:ProjectPriFileName=RimeNotice.pri')
+ }
+ & $msbuild @hostArgs (Join-Path $rnRoot $item.Project) /restore /t:Publish /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64 "/p:Version=$Version" "/p:OutputPath=$build/$($item.Name)/" /p:WindowsPackageType=None /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false /p:WindowsAppSDKSelfContained=true /p:SelfContained=true /p:PublishTrimmed=false /p:PublishReadyToRun=false "/p:PublishDir=$($item.Destination)/" /p:UseSharedCompilation=false /p:BuildInParallel=false @resourceArgs /m:1 /v:minimal /nologo
  if($LASTEXITCODE -ne 0){throw "Publish failed: $($item.Project)"}
 }
 foreach($file in @('RimeNotice.exe','RimeNotice.dll','RimeNotice.pri','coreclr.dll','Microsoft.UI.Xaml.dll','Updater/RimeNotice.Updater.exe','Updater/RimeNotice.Updater.pri','Updater/coreclr.dll','Assets/icon.ico')){if(!(Test-Path (Join-Path $OutputDirectory $file))){throw "Missing payload: $file"}}

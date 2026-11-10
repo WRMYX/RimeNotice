@@ -79,16 +79,21 @@ jobs:
             $identity = Join-Path $env:RUNNER_TEMP 'rn-store-identity.json'
             try {
               $env:STORE_IDENTITY | Set-Content -LiteralPath $identity -Encoding utf8
-              ./tools/Build-MSIX.ps1 -Store -StoreIdentityFile $identity -Version $env:PACKAGE_VERSION -PublishedDirectory $portable.Stage -OutputDirectory artifacts/Store
+              ./tools/Build-MSIX.ps1 -Store -StoreIdentityFile $identity -Version $env:PACKAGE_VERSION -PublishedDirectory $package.Payload -OutputDirectory artifacts/Store
               "RN_STORE_READY=true" >> $env:GITHUB_ENV
             } finally { if (Test-Path $identity) { Remove-Item -LiteralPath $identity -Force } }
           } else {
-            ./tools/Build-MSIX.ps1 -Store -Version $env:PACKAGE_VERSION -PublishedDirectory $portable.Stage -OutputDirectory artifacts/Store
+            ./tools/Build-MSIX.ps1 -Store -Version $env:PACKAGE_VERSION -PublishedDirectory $package.Payload -OutputDirectory artifacts/Store
             "RN_STORE_READY=true" >> $env:GITHUB_ENV
           }
           Get-ChildItem artifacts/Release -Filter *.zip | ForEach-Object { (Get-FileHash $_.FullName).Hash.ToLowerInvariant()+'  '+$_.Name } | Set-Content artifacts/Release/SHA256.txt
       - name: Validate release artifacts / 校验发布产物
         run: |
+          if ($env:RN_STORE_READY -eq 'true') {
+            $storePackages = @(Get-ChildItem artifacts/Store -Filter '*.msix' -File)
+            if ($storePackages.Count -ne 1) { throw 'Expected one Store package for payload validation.' }
+            ./tools/Test-MSIXPayload.ps1 -PackagePath $storePackages[0].FullName -ExpectedVersion '${{ steps.version.outputs.value }}'
+          }
           $portable = @(Get-ChildItem artifacts/Release -Filter '*-Portable-x64.zip' -File)
           $msix = @(Get-ChildItem artifacts/Release -Filter '*-MSIX-with-certificate-x64.zip' -File)
           if ($portable.Count -ne 1 -or $msix.Count -ne 1) { throw 'Expected exactly one portable archive and one MSIX archive.' }

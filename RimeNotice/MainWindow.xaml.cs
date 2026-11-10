@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -14,6 +16,34 @@ public sealed partial class MainWindow : Window
     public static NoticePresenter? Notices { get; private set; }
     private bool _restoringSelection;
     private object? _lastNavigationItem;
+    private readonly Dictionary<string, (string Tag, string[] Terms)> _settingSearch = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["消息接收"] = ("monitor", new[]{"消息", "QQ", "接收"}),
+        ["通知外观"] = ("appearance", new[]{"外观", "材质", "弹窗", "颜色", "字体", "动画", "Logo"}),
+        ["声音与语音"] = ("audio", new[]{"声音", "提示音", "朗读", "语音", "音量"}),
+        ["语音包管理"] = ("voices", new[]{"语音包", "下载", "MSIX", "声音"}),
+        ["接收兼容"] = ("reception", new[]{"接收", "通知权限", "图片", "附件", "QQ"}),
+        ["提醒规则"] = ("rules", new[]{"规则", "联系人", "关键词", "黑名单", "白名单", "呼叫"}),
+        ["常规"] = ("settings", new[]{"常规", "启动", "自启动", "主题", "托盘"}),
+        ["更新"] = ("updates", new[]{"更新", "GitHub", "商店", "版本"}),
+        ["关于"] = ("about", new[]{"关于", "项目", "官网", "反馈", "支持"}),
+        ["开机自启动"] = ("settings", new[]{"开机自启动", "启动应用", "登录 Windows"}),
+        ["应用主题"] = ("settings", new[]{"应用主题", "浅色", "深色"}),
+        ["设置窗口材质"] = ("settings", new[]{"设置窗口材质", "Mica", "亚克力", "纯色"}),
+        ["系统通知接收方式"] = ("reception", new[]{"系统通知接收方式", "事件驱动", "定时扫描"}),
+        ["扫描间隔"] = ("reception", new[]{"扫描间隔", "扫描"}),
+        ["图片与附件预览"] = ("reception", new[]{"图片与附件预览", "图片", "附件"}),
+        ["QQ 账号"] = ("reception", new[]{"QQ 账号", "账号"}),
+        ["提示音音量"] = ("audio", new[]{"提示音音量", "音量"}),
+        ["语音播报"] = ("audio", new[]{"语音播报", "朗读", "语音"}),
+        ["本机语音"] = ("audio", new[]{"本机语音", "声音", "SAPI"}),
+        ["重要联系人"] = ("rules", new[]{"重要联系人", "老师", "联系人"}),
+        ["重要关键词"] = ("rules", new[]{"重要关键词", "关键词", "作业", "通知"}),
+        ["启动时检查更新"] = ("updates", new[]{"启动时检查更新", "自动检查", "检查更新"}),
+        ["项目地址 GitHub"] = ("about", new[]{"项目地址", "GitHub"}),
+        ["问题反馈"] = ("about", new[]{"问题反馈", "Issues", "反馈"})
+    };
+    private static readonly HashSet<string> SearchPageLabels = new(StringComparer.OrdinalIgnoreCase) { "消息接收", "通知外观", "声音与语音", "语音包管理", "接收兼容", "提醒规则", "常规", "更新", "关于" };
 
     public MainWindow()
     {
@@ -43,7 +73,41 @@ public sealed partial class MainWindow : Window
         SettingsStore.Shared.Changed += ApplySettingsMaterial;
         Closed += (_, _) => { _closed = true; SettingsStore.Shared.Changed -= ApplySettingsMaterial; };
         ApplySettingsMaterial();
+        SettingsSearch.ItemsSource = _settingSearch.Keys.Where(k => !SearchPageLabels.Contains(k)).ToArray();
         _ = CheckStartupUpdatesAsync();
+    }
+    private void SettingsSearch_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
+        string query = sender.Text.Trim();
+        sender.ItemsSource = string.IsNullOrWhiteSpace(query)
+            ? _settingSearch.Keys.Where(k => !SearchPageLabels.Contains(k)).ToArray()
+            : _settingSearch.Where(x => !SearchPageLabels.Contains(x.Key) && MatchesSearch(x.Key, x.Value.Terms, query)).Select(x => x.Key).ToArray();
+    }
+    private void SettingsSearch_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        string query = (args.QueryText ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(query)) return;
+        var match = _settingSearch.FirstOrDefault(x => !SearchPageLabels.Contains(x.Key) && MatchesSearch(x.Key, x.Value.Terms, query));
+        if (!string.IsNullOrEmpty(match.Key)) { NavigateTo(match.Value.Tag); DispatcherQueue.TryEnqueue(async () => { await System.Threading.Tasks.Task.Delay(80); BringSearchTargetIntoView(match.Key); }); }
+    }
+    private static bool MatchesSearch(string title, string[] terms, string query)
+    {
+        var tokens = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return tokens.Length == 0 || tokens.All(token => title.Contains(token, StringComparison.OrdinalIgnoreCase) || terms.Any(term => term.Contains(token, StringComparison.OrdinalIgnoreCase)));
+    }
+    private void BringSearchTargetIntoView(string query)
+    {
+        if (ContentFrame.Content is not FrameworkElement root) return;
+        FrameworkElement? found = null;
+        void Walk(DependencyObject node)
+        {
+            if (found is not null) return;
+            if (node is TextBlock text && (text.Text?.Contains(query, StringComparison.OrdinalIgnoreCase) == true)) { found = text; return; }
+            int count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(node);
+            for (int i = 0; i < count; i++) Walk(Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(node, i));
+        }
+        Walk(root); found?.StartBringIntoView();
     }
     private bool _closed, _themePending;
     private int _requestedTheme;

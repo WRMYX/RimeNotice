@@ -11,9 +11,9 @@
   IgnorableNamespaces="uap uap3 rescap desktop">
 
   <Identity
-    Name="f6503b26-5990-4286-99ea-d4c7221d0301"
-    Publisher="CN=Admin"
-    Version="1.0.15.0" />
+    Name="MYXMJY.RimeNotice"
+    Publisher="CN=99E0AD8D-459D-4C6D-8850-C7F11B790A9F"
+    Version="1.1.1.0" />
 
 
 

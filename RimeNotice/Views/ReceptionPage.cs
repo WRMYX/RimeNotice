@@ -12,8 +12,8 @@ public sealed partial class ReceptionPage : SettingsFormPage {
   int compatibilityStart=Rows.Children.Count;
   Number("扫描间隔（秒）",o.ScanSeconds,.1,5,v=>Save(s=>s with{Reception=s.Reception with{ScanSeconds=v}}));
   Note("RN 仅接收 QQ 消息，其他软件的通知不会进入提醒队列。");
-  Toggle("使用 UI Automation 兼容接收",o.UseUIAutomation,v=>Save(s=>s with{Reception=s.Reception with{UseUIAutomation=v}}),"安装版默认关闭；便携版自动使用此兼容来源。依赖 QQ 可见通知横幅，不能保证所有系统版本兼容。");
-  Note("切换来源后跳过当时已有的通知，只接收之后出现的新通知。系统通知模式需要安装版及通知访问权限。");
+  Toggle("使用 UI Automation 兼容接收",o.UseUIAutomation,v=>Save(s=>s with{Reception=s.Reception with{UseUIAutomation=v}}),"默认关闭。便携版与安装版均优先尝试系统通知接口；此兼容模式需手动选择，依赖 QQ 可见通知横幅。");
+  Note("切换来源后跳过当时已有的通知，只接收之后出现的新通知。系统通知接收以 Windows 实际授权和读取结果为准；请在消息接收页授权。不会自动注册身份或安装证书。");
   Fold("扫描与 UIA 高级选项",compatibilityStart);
   Section("仅显示 RN 通知");
   Rows.Children.Add(new InfoBar{IsOpen=true,IsClosable=false,Severity=InfoBarSeverity.Informational,Title="在 Windows 中关闭 QQ 横幅",Message="保留 QQ 通知总开关及通知中心，只关闭横幅和声音。此方法使用系统通知来源；UIA 兼容来源依赖可见横幅。RN 无法提前拦截横幅，不要关闭 QQ 通知总开关。"});
