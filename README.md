@@ -203,6 +203,23 @@ Copyright © 2026 **MYXMJY**。本项目采用 **GNU GPL v3（GPL-3.0-only）**�
 
 第三方依赖与素材来源见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
 
+## 支持项目
+
+感谢你支持 RimeNotice 的持续维护。你可以通过微信或支付宝支持项目。
+
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="RimeNotice/Assets/Support/WeChat-Dark.png" />
+    <source media="(prefers-color-scheme: light)" srcset="RimeNotice/Assets/Support/WeChat-Light.png" />
+    <img src="RimeNotice/Assets/Support/WeChat-Light.png" width="180" alt="微信支持二维码" />
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="RimeNotice/Assets/Support/Alipay-Dark.png" />
+    <source media="(prefers-color-scheme: light)" srcset="RimeNotice/Assets/Support/Alipay-Light.png" />
+    <img src="RimeNotice/Assets/Support/Alipay-Light.png" width="180" alt="支付宝支持二维码" />
+  </picture>
+</div>
+
 ---
 
 <div align="center">
